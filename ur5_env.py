@@ -7,12 +7,16 @@ import mujoco_py
 #import glob
 #import io
 import cv2
+import glfw
 from matplotlib import pyplot as plt
 from copy import deepcopy
 import numpy as np
 import imageio
 import types
 import time
+
+import os
+file_path = os.path.dirname(os.path.abspath(__file__))
 
 
 def save_video(frames, filename='video/mujoco.mp4', fps=60):
@@ -48,9 +52,10 @@ class UR5Env():
             self, 
             render=True,
             image_state=True,
-            camera_height=128,
-            camera_width=128,
-            control_freq=5,
+            camera_height=64,
+            camera_width=64,
+            control_freq=8,
+            data_format='NHWC',
             ):
 
         self.render = render
@@ -58,11 +63,12 @@ class UR5Env():
         self.camera_height = camera_height
         self.camera_width = camera_width
         self.control_freq = control_freq
+        self.data_format = data_format
 
         self._init_robot()
 
     def _init_robot(self):
-        self.model = load_model_from_path('make_urdf/ur5_robotiq.xml')
+        self.model = load_model_from_path(os.path.join(file_path, 'make_urdf/ur5_robotiq.xml'))
         self.n_substeps = 1 #20
         self.sim = MjSim(self.model, nsubsteps=self.n_substeps)
         self.viewer = MjViewer(self.sim)
@@ -76,14 +82,14 @@ class UR5Env():
         self.viewer.cam.lookat[0] = lookat_refer[0]
         self.viewer.cam.lookat[1] = lookat_refer[1]
         self.viewer.cam.lookat[2] = lookat_refer[2]
-        self.viewer.cam.azimuth = -90 #-75
-        self.viewer.cam.elevation = -60 #-15
+        self.viewer.cam.azimuth = -75 #-90 #-75
+        self.viewer.cam.elevation = -30 #-60 #-15
         self.viewer.cam.distance = 1.5
 
         str = ''
         for joint_name in self.gripper_joint_list:
             str += "{} : {:.3f}, ".format(joint_name, self.sim.data.get_joint_qpos(joint_name))
-        print(str)
+        # print(str)
 
 
         self.init_arm_pos = np.array([-np.pi/2, -np.pi/2, -np.pi/2, -np.pi/2, np.pi/2, 0.0])
@@ -92,14 +98,21 @@ class UR5Env():
             self.sim.data.set_joint_qvel(joint_name, 0.0)
         self.reset_mocap_welds()
 
+        '''
         # Move end effector into position.
         gripper_target = np.array([0.0, 0.0, -0.1]) + self.sim.data.get_body_xpos('wrist_3_link')
         gripper_rotation = np.array([1., 0., 1., 0.])
         self.sim.data.set_mocap_pos('robot0:mocap', gripper_target)
         self.sim.data.set_mocap_quat('robot0:mocap', gripper_rotation)
+        '''
+        im_state = self.move_to_pos()
+        return im_state
+        '''
         for _ in range(10):
             self.sim.step()
-            self.sim.render(mode='window')
+            if self.render: self.sim.render(mode='window')
+            else: self.sim.render(camera_name="rlview", width=self.camera_width, height=self.camera_height, mode='offscreen')
+        '''
 
     def reset_mocap_welds(self):
         """Resets the mocap welds that we use for actuation. """
@@ -110,74 +123,150 @@ class UR5Env():
                         [0., 0., 0., 1., 0., 0., 0.])
         self.sim.forward()
     
-    def move_to_pos(self, pos=[0.0, 0.0, 0.63], quat=[0, 1, 0, 0], grasp=0.0):
-        self.sim.data.mocap_pos[0] = self.sim.data.get_body_xpos('box_link') + np.array(pos)
+    def move_to_pos(self, pos=[0.0, 0.0, 1.20], quat=[0, 1, 0, 0], grasp=0.0):
+        self.sim.data.mocap_pos[0] = np.array(pos)
+        #self.sim.data.mocap_pos[0] = self.sim.data.get_body_xpos('box_link') + np.array(pos)
         self.sim.data.mocap_quat[0] = np.array(quat)
-        self.sim.data.ctrl[0] = grasp
-        self.sim.data.ctrl[1] = grasp
         
         control_timestep = 1. / self.control_freq
         cur_time = time.time()
         end_time = cur_time + control_timestep
 
-        #for i in range(10):
         while cur_time < end_time:
             self.sim.step()
             cur_time += self.sim.model.opt.timestep
-            self.sim.render(mode='window')
+            if self.render: self.sim.render(mode='window')
+            else: self.sim.render(camera_name="rlview", width=self.camera_width, height=self.camera_height, mode='offscreen')
+
+        pre_grasp = float(bool(sum(self.sim.data.ctrl)))
+        self.sim.data.ctrl[0] = grasp
+        self.sim.data.ctrl[1] = grasp
+        if grasp != pre_grasp:
+            cur_time = time.time()
+            end_time = cur_time + 2.0*control_timestep
+            #for i in range(20):
+            while cur_time < end_time:
+                self.sim.step()
+                cur_time += self.sim.model.opt.timestep
+                if self.render: self.sim.render(mode='window')
+                else: self.sim.render(camera_name="rlview", width=self.camera_width, height=self.camera_height, mode='offscreen')
+
         diff_pos = np.linalg.norm(self.sim.data.mocap_pos[0] - self.sim.data.get_body_xpos('robot0:mocap'))
         diff_quat = np.linalg.norm(self.sim.data.mocap_quat[0] - self.sim.data.get_body_xquat('robot0:mocap'))
         if diff_pos + diff_quat > 1e-3:
             print('Failed to move to target position.')
 
-        #self.viewer._set_mujoco_buffers()
-        im_state = self.viewer._read_pixels_as_in_window()
-        #im_state = self.sim.render(camera_name="rlview", width=self.camera_width, height=self.camera_height, mode='offscreen')
-        #im_state = self.sim.render(camera_name="rlview", width=self.camera_width, height=self.camera_height, mode='offscreen')
-        #self.viewer._set_mujoco_buffers()
+        if self.render:
+            self.viewer._set_mujoco_buffers()
+            '''
+            im_state = self.viewer._read_pixels_as_in_window()
+            im_state = self.viewer._read_pixels_as_in_window()
+            '''
+            im_state = self.sim.render(camera_name="rlview", width=self.camera_width, height=self.camera_height, mode='offscreen')
+            im_state = self.sim.render(camera_name="rlview", width=self.camera_width, height=self.camera_height, mode='offscreen')
+            im_state = np.flip(im_state, axis=1)
+            self.viewer._set_mujoco_buffers()
+        else:
+            im_state = self.sim.render(camera_name="rlview", width=self.camera_width, height=self.camera_height, mode='offscreen')
+            im_state = np.flip(im_state, axis=1)
+        if self.data_format=='NCHW':
+            im_state = np.transpose(im_state, [2, 0, 1])
         return im_state
 
     def move_pos_diff(self, posdiff, quat=[0, 1, 0, 0], grasp=0.0):
-        cur_pos = deepcopy(self.sim.data.mocap_pos[0]) - self.sim.data.get_body_xpos('box_link')
+        cur_pos = deepcopy(self.sim.data.mocap_pos[0])# - self.sim.data.get_body_xpos('box_link')
         target_pos = cur_pos + np.array(posdiff)
         return self.move_to_pos(target_pos, quat, grasp)
 
 
-def discrete_env(object):
-    def __init__(self, ur5_env, mov_dist=0.03):
+class discrete_env(object):
+    def __init__(self, ur5_env, task=0, mov_dist=0.03, max_steps=20):
         self.env = ur5_env 
+        self.task = task
+        if self.task==0:
+            self.init_pos = [0.0, 0.0, 1.20]
         self.mov_dist = mov_dist
+        self.z_min = 1.05
+        self.time_penalty = 1e-3
+        self.max_steps = max_steps
+        self.step_count = 0
+
+    def reset(self):
+        glfw.destroy_window(self.env.viewer.window)
+        self.env.viewer = None
+        im_state = self.env._init_robot()
+        gripper_height, curr_grasp = self.get_gripper_state()
+        #self.env.move_to_pos(self.init_pos)
+        self.step_count = 0
+        return im_state, np.array([gripper_height, curr_grasp])
 
     def step(self, action, grasp):
+        self.pre_mocap_pos = deepcopy(self.env.sim.data.mocap_pos[0])
+        self.pre_target_pos = deepcopy(self.env.sim.data.get_body_xpos('target_body_1'))
+
+        dist = self.mov_dist
         if action==0:
-            env.move_pos_diff([0.0, dist, 0.0], grasp=grasp)
+            im_state = self.env.move_pos_diff([0.0, dist, 0.0], grasp=grasp)
         elif action==1:
-            env.move_pos_diff([dist, 0.0, 0.0], grasp=grasp)
+            im_state = self.env.move_pos_diff([dist, 0.0, 0.0], grasp=grasp)
         elif action==2:
-            env.move_pos_diff([0.0, -dist, 0.0], grasp=grasp)
+            im_state = self.env.move_pos_diff([0.0, -dist, 0.0], grasp=grasp)
         elif action==3:
-            env.move_pos_diff([-dist, 0.0, 0.0], grasp=grasp)
+            im_state = self.env.move_pos_diff([-dist, 0.0, 0.0], grasp=grasp)
         elif action==4:
-            env.move_pos_diff([0.0, 0.0, dist], grasp=grasp)
+            im_state = self.env.move_pos_diff([0.0, 0.0, dist], grasp=grasp)
         elif action==5:
-            env.move_pos_diff([0.0, 0.0, -dist], grasp=grasp)
+            if self.pre_mocap_pos[2]-dist < self.z_min:
+                im_state = self.env.move_pos_diff([0.0, 0.0, -self.pre_mocap_pos[2]+self.z_min], grasp=grasp)
+            else:
+                im_state = self.env.move_pos_diff([0.0, 0.0, -dist], grasp=grasp)
         else:
             print("Error!! Wrong action!")
 
-        state = self.get_state()
+        gripper_height, curr_grasp = self.get_gripper_state()
         reward, done = self.get_reward()
 
-    def get_state(self):
-        return
+        self.step_count += 1
+        if self.step_count==self.max_steps:
+            done = True
+        return [im_state, np.array([gripper_height, curr_grasp])], reward, done, None
+
+    def get_gripper_state(self):
+        # return grasp_height, gripper_close
+        return self.env.sim.data.mocap_pos[0][2], int(bool(sum(self.env.sim.data.ctrl)))
 
     def get_reward(self):
-        return
+        # 0: Reach #
+        # 1: Pick  #
+        # 2:
+        ### Reach ###
+        if self.task == 0:
+            target_pos = self.env.sim.data.get_body_xpos('target_body_1')
+            if np.linalg.norm(target_pos - self.pre_target_pos) > 1e-3:
+                reward = 1.0
+                done = True
+            else:
+                reward = -self.time_penalty
+                done = False
+        else:
+            reward = 0.0
+            done = True
+        return reward, done
 
 
 if __name__=='__main__':
-    env = UR5Env()
-    env.move_to_pos()
+    env = UR5Env(render=False)
+    env = discrete_env(env, mov_dist=0.03)
 
+    for i in range(100):
+        action = [np.random.randint(6), np.random.randint(2)]
+        print('{} steps. action: {}'.format(env.step_count, action))
+        states, reward, done = env.step(*action)
+        if done:
+            print('Done. New episode starts.')
+            env.reset()
+
+    '''
     grasp = 0.0
     for i in range(100):
         x = input('Ctrl+c to exit. next?')
@@ -189,33 +278,18 @@ if __name__=='__main__':
 
         dist = 0.03
         if x=='w':
-            frame = env.move_pos_diff([0.0, 0.0, dist], grasp=grasp)
+            im_state = env.move_pos_diff([0.0, 0.0, dist], grasp=grasp)
         elif x=='s':
-            frame = env.move_pos_diff([0.0, 0.0, -dist], grasp=grasp)
+            im_state = env.move_pos_diff([0.0, 0.0, -dist], grasp=grasp)
         elif x=='6':
-            frame = env.move_pos_diff([dist, 0.0, 0.0], grasp=grasp)
+            im_state = env.move_pos_diff([dist, 0.0, 0.0], grasp=grasp)
         elif x=='4':
-            frame = env.move_pos_diff([-dist, 0.0, 0.0], grasp=grasp)
+            im_state = env.move_pos_diff([-dist, 0.0, 0.0], grasp=grasp)
         elif x=='8':
-            frame = env.move_pos_diff([0.0, dist, 0.0], grasp=grasp)
+            im_state = env.move_pos_diff([0.0, dist, 0.0], grasp=grasp)
         elif x=='2':
-            frame = env.move_pos_diff([0.0, -dist, 0.0], grasp=grasp)
+            im_state = env.move_pos_diff([0.0, -dist, 0.0], grasp=grasp)
 
-        plt.imshow(frame)
+        plt.imshow(im_state)
         plt.show()
-
     '''
-    env.move_to_pos([0, 0.2, 0.85], grasp=0.0)
-    env.move_to_pos([0, 0.2, 0.61], grasp=0.0)
-    env.move_to_pos([0, 0.2, 0.61], grasp=1.0)
-    env.move_to_pos([0, 0.2, 0.85], grasp=1.0)
-
-    env.move_pos_diff([0.0, -0.05, 0], grasp=1.0)
-    env.move_pos_diff([0.0, -0.05, 0], grasp=1.0)
-    env.move_pos_diff([0.05, -0.05, 0], grasp=1.0)
-    env.move_pos_diff([0.05, -0.05, 0], grasp=1.0)
-    env.move_pos_diff([0.0, -0.0, 0.05], grasp=1.0)
-    env.move_pos_diff([0.0, -0.0, 0.05], grasp=1.0)
-    '''
-
-
