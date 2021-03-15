@@ -51,6 +51,7 @@ def show_image(img):
 class UR5Env():
     def __init__(
             self, 
+            envnum=0,
             render=True,
             image_state=True,
             camera_height=64,
@@ -59,8 +60,18 @@ class UR5Env():
             data_format='NHWC',
             ):
 
-        self.model_xml = 'make_urdf/ur5_robotiq_cube.xml'
+        if envnum==0:
+            self.model_xml = 'make_urdf/ur5_robotiq.xml'
+        elif envnum==1:
+            self.model_xml = 'make_urdf/ur5_robotiq_door.xml'
+        elif envnum==2:
+            self.model_xml = 'make_urdf/ur5_robotiq_drawer.xml'
+        elif envnum==3:
+            self.model_xml = 'make_urdf/ur5_robotiq_faucet.xml'
+        elif envnum==4:
+            self.model_xml = 'make_urdf/ur5_robotiq_openbox.xml'
 
+        self.envnum = envnum
         self.render = render
         self.image_state = image_state
         self.camera_height = camera_height
@@ -185,9 +196,8 @@ class UR5Env():
 
 class discrete_env(object):
     def __init__(self, ur5_env, mov_dist=0.03, max_steps=50):
-        self.action_type="disc_10d"
         self.env = ur5_env 
-        self.task = 1
+        self.task = self.env.envnum
         if self.task==0:
             self.init_pos = [0.0, 0.0, 1.20]
         else:
@@ -212,51 +222,23 @@ class discrete_env(object):
         self.pre_target_pos = deepcopy(self.env.sim.data.get_body_xpos('target_body_1'))
 
         dist = self.mov_dist
-        if self.action_type=="disc_6d":
-            if action==0:
-                im_state = self.env.move_pos_diff([0.0, dist, 0.0], grasp=grasp)
-            elif action==1:
-                im_state = self.env.move_pos_diff([dist, 0.0, 0.0], grasp=grasp)
-            elif action==2:
-                im_state = self.env.move_pos_diff([0.0, -dist, 0.0], grasp=grasp)
-            elif action==3:
-                im_state = self.env.move_pos_diff([-dist, 0.0, 0.0], grasp=grasp)
-            elif action==4:
-                im_state = self.env.move_pos_diff([0.0, 0.0, dist], grasp=grasp)
-            elif action==5:
-                if self.pre_mocap_pos[2]-dist < self.z_min:
-                    im_state = self.env.move_pos_diff([0.0, 0.0, -self.pre_mocap_pos[2]+self.z_min], grasp=grasp)
-                else:
-                    im_state = self.env.move_pos_diff([0.0, 0.0, -dist], grasp=grasp)
+        if action==0:
+            im_state = self.env.move_pos_diff([0.0, dist, 0.0], grasp=grasp)
+        elif action==1:
+            im_state = self.env.move_pos_diff([dist, 0.0, 0.0], grasp=grasp)
+        elif action==2:
+            im_state = self.env.move_pos_diff([0.0, -dist, 0.0], grasp=grasp)
+        elif action==3:
+            im_state = self.env.move_pos_diff([-dist, 0.0, 0.0], grasp=grasp)
+        elif action==4:
+            im_state = self.env.move_pos_diff([0.0, 0.0, dist], grasp=grasp)
+        elif action==5:
+            if self.pre_mocap_pos[2]-dist < self.z_min:
+                im_state = self.env.move_pos_diff([0.0, 0.0, -self.pre_mocap_pos[2]+self.z_min], grasp=grasp)
             else:
-                print("Error!! Wrong action!")
-        elif self.action_type=="disc_10d":
-            dist2 = dist/np.sqrt(2)
-            if action==0:
-                if self.pre_mocap_pos[2]-dist < self.z_min:
-                    im_state = self.env.move_pos_diff([0.0, 0.0, -self.pre_mocap_pos[2]+self.z_min], grasp=grasp)
-                else:
-                    im_state = self.env.move_pos_diff([0.0, 0.0, -dist], grasp=grasp)
-            elif action==5:
-                im_state = self.env.move_pos_diff([0.0, 0.0, dist], grasp=grasp)
-            elif action==8:
-                im_state = self.env.move_pos_diff([0.0, dist, 0.0], grasp=grasp)
-            elif action==9:
-                im_state = self.env.move_pos_diff([dist2, dist2, 0.0], grasp=grasp)
-            elif action==6:
-                im_state = self.env.move_pos_diff([dist, 0.0, 0.0], grasp=grasp)
-            elif action==3:
-                im_state = self.env.move_pos_diff([dist2, -dist2, 0.0], grasp=grasp)
-            elif action==2:
-                im_state = self.env.move_pos_diff([0.0, -dist, 0.0], grasp=grasp)
-            elif action==1:
-                im_state = self.env.move_pos_diff([-dist2, -dist2, 0.0], grasp=grasp)
-            elif action==4:
-                im_state = self.env.move_pos_diff([-dist, 0.0, 0.0], grasp=grasp)
-            elif action==7:
-                im_state = self.env.move_pos_diff([-dist2, dist2, 0.0], grasp=grasp)
-            else:
-                print("Error!! Wrong action!")
+                im_state = self.env.move_pos_diff([0.0, 0.0, -dist], grasp=grasp)
+        else:
+            print("Error!! Wrong action!")
 
         gripper_height, curr_grasp = self.get_gripper_state()
         reward, done = self.get_reward()
@@ -290,8 +272,8 @@ class discrete_env(object):
 
 
 if __name__=='__main__':
-    env = UR5Env(render=True, camera_height=96, camera_width=96)
-    env = discrete_env(env, mov_dist=0.03, max_steps=100)
+    env = UR5Env(3, render=True, camera_height=96, camera_width=96)
+    env = discrete_env(env, mov_dist=0.03)
 
     for i in range(100):
         #action = [np.random.randint(6), np.random.randint(2)]
