@@ -184,19 +184,28 @@ class UR5Env():
 
 
 class discrete_env(object):
-    def __init__(self, ur5_env, mov_dist=0.03, max_steps=50):
+    def __init__(self, ur5_env, task=1, mov_dist=0.03, max_steps=50):
         self.action_type="disc_10d"
         self.env = ur5_env 
-        self.task = 1
+        self.init_pos = [0.0, 0.0, 1.10]
+        self.task = task
         if self.task==0:
             self.init_pos = [0.0, 0.0, 1.20]
+        elif self.task==1:
+            self.threshold = 0.4
+        elif self.task==2:
+            self.threshold = 0.1
+        elif self.task==3:
+            self.threshold = np.pi/18
         else:
-            self.init_pos = [0.0, 0.0, 1.20]
+            pass
         self.mov_dist = mov_dist
         self.z_min = 1.05
         self.time_penalty = 1e-3
         self.max_steps = max_steps
         self.step_count = 0
+
+        self.env.move_to_pos(self.init_pos, grasp=1.0)
 
     def reset(self):
         glfw.destroy_window(self.env.viewer.window)
@@ -271,10 +280,11 @@ class discrete_env(object):
         return self.env.sim.data.mocap_pos[0][2], int(bool(sum(self.env.sim.data.ctrl)))
 
     def get_reward(self):
-        # 0: Reach #
-        # 1: Pick  #
-        # 2:
-        ### Reach ###
+        # 0: Reach   #
+        # 1: Spread  #
+        # 2: Gather  #
+        # 3: Line up #
+        ## Reach ##
         if self.task == 0:
             target_pos = self.env.sim.data.get_body_xpos('target_body_1')
             if np.linalg.norm(target_pos - self.pre_target_pos) > 1e-3:
@@ -282,6 +292,54 @@ class discrete_env(object):
                 done = True
             else:
                 reward = -self.time_penalty
+                done = False
+        ## Spread ##
+        elif self.task == 1:
+            pos_1 = self.env.sim.data.get_body_xpos('target_body_1')
+            pos_2 = self.env.sim.data.get_body_xpos('target_body_2')
+            pos_3 = self.env.sim.data.get_body_xpos('target_body_3')
+            dist_12 = np.linalg.norm(pos_1 - pos_2)
+            dist_23 = np.linalg.norm(pos_2 - pos_3)
+            dist_31 = np.linalg.norm(pos_3 - pos_1)
+            min_dist = np.min([dist_12, dist_23, dist_31])
+            if min_dist > self.threshold:
+                reward = 1.0
+                done = True
+            else:
+                reward = 0.0
+                done = False
+        ## Gather ##
+        elif self.task == 2:
+            pos_1 = self.env.sim.data.get_body_xpos('target_body_1')
+            pos_2 = self.env.sim.data.get_body_xpos('target_body_2')
+            pos_3 = self.env.sim.data.get_body_xpos('target_body_3')
+            dist_12 = np.linalg.norm(pos_1 - pos_2)
+            dist_23 = np.linalg.norm(pos_2 - pos_3)
+            dist_31 = np.linalg.norm(pos_3 - pos_1)
+            max_dist = np.max([dist_12, dist_23, dist_31])
+            if max_dist < self.threshold:
+                reward = 1.0
+                done = True
+            else:
+                reward = 0.0
+                done = False
+        ## Line Up ##
+        elif self.task==3:
+            pos_1 = self.env.sim.data.get_body_xpos('target_body_1')
+            pos_2 = self.env.sim.data.get_body_xpos('target_body_2')
+            pos_3 = self.env.sim.data.get_body_xpos('target_body_3')
+            theta_12 = np.arctan((pos_1[1] - pos_2[1])/(pos_1[0] - pos_2[0] + 1e-10))
+            theta_23 = np.arctan((pos_2[1] - pos_3[1])/(pos_2[0] - pos_3[0] + 1e-10))
+            theta_31 = np.arctan((pos_3[1] - pos_1[1])/(pos_3[0] - pos_1[0] + 1e-10))
+            dtheta_1 = np.min([(theta_12-theta_31)%np.pi, np.abs((theta_12-theta_31)%np.pi-np.pi)])
+            dtheta_2 = np.min([(theta_12-theta_23)%np.pi, np.abs((theta_12-theta_23)%np.pi-np.pi)])
+            dtheta_3 = np.min([(theta_31-theta_23)%np.pi, np.abs((theta_31-theta_23)%np.pi-np.pi)])
+            max_dtheta = np.max([dtheta_1, dtheta_2, dtheta_3])
+            if max_dtheta < self.threshold:
+                reward = 1.0
+                done = True
+            else:
+                reward = 0.0
                 done = False
         else:
             reward = 0.0
@@ -291,13 +349,21 @@ class discrete_env(object):
 
 if __name__=='__main__':
     env = UR5Env(render=True, camera_height=96, camera_width=96)
-    env = discrete_env(env, mov_dist=0.03, max_steps=100)
+    env = discrete_env(env, task=3, mov_dist=0.03, max_steps=100)
 
     for i in range(100):
         #action = [np.random.randint(6), np.random.randint(2)]
-        action = [int(input("action? ")), 1]
+        try:
+            action = [int(input("action? ")), 1]
+        except KeyboardInterrupt:
+            exit()
+        except:
+            continue
+        if action[0] > 9:
+            continue
         print('{} steps. action: {}'.format(env.step_count, action))
         states, reward, done, info = env.step(*action)
+        print('Reward: {}. Done: {}'.format(reward, done))
         #show_image(states[0])
         if done:
             print('Done. New episode starts.')

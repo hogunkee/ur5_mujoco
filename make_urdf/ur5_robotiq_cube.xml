@@ -54,7 +54,7 @@
         <mesh name="outer_finger_visual" file="outer_finger_visual.stl" scale="0.001 0.001 0.001" />
         <mesh name="inner_finger_visual" file="inner_finger_visual.stl" scale="0.001 0.001 0.001" />
         <mesh name="inner_knuckle_visual" file="inner_knuckle_visual.stl" scale="0.001 0.001 0.001" />
-        <mesh name="triangular" file="triangular_0.stl" />
+        <mesh name="triangular" file="triangular_1.stl" />
 
         <!--Textures-->
         <texture name="floor_tex"   type="2d"       builtin="checker" rgb1=".2 .3 .4" rgb2=".1 .2 .3" width="100" height="100" />
@@ -177,7 +177,7 @@
         <!--CUBE-->
         <body name="target_body_1" pos="0 0.2 0.9">
             <joint name="target_1_joint" type="free" limited="false" damping="0" armature="0."/>
-            <geom name="target_1" pos="0 0 0" size="0.025 0.025 0.025" type="box" 
+            <geom name="target_1" pos="0 0 0" size="0.035 0.035 0.0175" type="box" 
                 rgba="0.9529411765 0.8 0.03529411765 1" condim="3" mass="0.02" 
                 solimp="0.9 0.95 0.001" solref="0.02 1.0" friction="0.1 0.1 0.002"/>
         </body>
@@ -193,7 +193,7 @@
         <body name="target_body_3" pos="-0.1 -0.05 0.95">
           <joint name="target_3_joint" type="free" limited="false" damping="0." armature="0."/>
           <inertial pos="0 0 0" mass="0.02" diaginertia="8.80012e-04 8.80012e-04 8.80012e-04"/>
-          <geom name="objGeom" pos="0 0 0" size="0.03 0.03" type="cylinder" 
+          <geom name="objGeom" pos="0 0 0" size="0.0175 0.0175" type="cylinder" 
               rgba="0 0 1 1" condim="4" solimp="0.99 0.99 0.01" solref="0.01 1" 
               friction="0.1 0.1 0.0002" contype="1" conaffinity="1" />
         </body>
