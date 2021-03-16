@@ -86,7 +86,7 @@ class UR5Env():
         self.viewer.cam.lookat[0] = lookat_refer[0]
         self.viewer.cam.lookat[1] = lookat_refer[1]
         self.viewer.cam.lookat[2] = lookat_refer[2]
-        self.viewer.cam.azimuth = 35 #-75 #-90 #-75
+        self.viewer.cam.azimuth = -65 #-75 #-90 #-75
         self.viewer.cam.elevation = -30 #-60 #-15
         self.viewer.cam.distance = 1.5
 
@@ -187,7 +187,7 @@ class discrete_env(object):
     def __init__(self, ur5_env, task=1, mov_dist=0.03, max_steps=50):
         self.action_type="disc_10d"
         self.env = ur5_env 
-        self.init_pos = [0.0, 0.0, 1.10]
+        self.init_pos = [0.0, 0.0, 1.20]
         self.task = task
         if self.task==0:
             self.init_pos = [0.0, 0.0, 1.20]
@@ -273,6 +273,15 @@ class discrete_env(object):
         self.step_count += 1
         if self.step_count==self.max_steps:
             done = True
+
+        sim = self.env.sim
+        # left_finger_idx = sim.model.body_name2id('left_inner_finger')
+        # right_finger_idx = sim.model.body_name2id('right_inner_finger')
+        # right_contact_force = sim.data.efc_force[right_finger_idx]
+        # # print('left: {} / right: {}'.format(left_contact_force, right_contact_force))
+        print('force: {}'.format(sim.data.sensordata))
+        # print(sim.data.get_sensor('left_finger_force'))
+
         return [im_state, np.array([gripper_height, curr_grasp])], reward, done, None
 
     def get_gripper_state(self):
