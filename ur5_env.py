@@ -380,6 +380,10 @@ class onesteppush_env(object):
             [0.93, 0.545, 0.93], 
             [0.9686, 0.902, 0] 
             ])
+        self.range_x_min = 0
+        self.range_x_max = 90
+        self.range_y_min = 0
+        self.range_y_max = 90
 
         ## camera intrinsic ##
         cam_id = 1
@@ -413,19 +417,24 @@ class onesteppush_env(object):
         im_state = self.env.move_to_pos(self.init_pos)
         return im_state
 
-    def pixel2pose(self, u, v):
+    def pixel2pose(self, u, v, depth):
         pos_pixel = np.array([u, v, 1]).transpose()
-        pos_world = np.matmul(np.linalg.inv(np.matmul(self.K, self.cam_T)), pos_pixel)
-        x, y, z = pos_world[:3] / pos_world[-1]
+        pos_cam = np.matmul(np.linalg.inv(self.K), pos_pixel)
+        pos_world = pos_cam / pos_cam[2] * depth
+        x, y, z = pos_world
         return x, y
 
     def move_to_pixel(self, px, py, z):
-        pos_world = self.pixel2pose(px, py)
+        pos_world = self.pixel2pose(px, py, z)
         pos_world = [pos_world[0], pos_world[1], self.z_push]
         return self.env.move_to_pos(pos_world, 1.0)
 
+    def get_depth(self, px, py):
+        return depth
+
     def push_from_pixel(self, px, py, theta):
-        pos_before = np.array(self.pixel2pose(px, py))
+        z = self.get_depth(px, py)
+        pos_before = np.array(self.pixel2pose(px, py, z))
         pos_after = pos_before + self.mov_dist * np.array([np.cos(theta), np.sin(theta)])
 
         self.env.move_to_pos([pos_before[0], pos_before[1], self.z_prepush], 1.0)
@@ -451,9 +460,10 @@ class onesteppush_env(object):
 
     def set_goal(self, seed=0):
         np.random.seed(seed)
+        goal_positions = []
         for i in range(self.num_blocks):
-            goal_x = np.random.randint(range_x_min, range_x_max)
-            goal_y = np.random.randint(range_y_min, range_y_max)
+            goal_x = np.random.randint(self.range_x_min, self.range_x_max)
+            goal_y = np.random.randint(self.range_y_min, self.range_y_max)
             goal_positions.append([goal_x, goal_y])
 
         self.goal_positions = np.array(goal_positions)
@@ -493,6 +503,28 @@ class onesteppush_env(object):
 
 if __name__=='__main__':
     env = UR5Env(render=True, camera_height=96, camera_width=96)
+    env = onesteppush_env(env, num_bins=8, mov_dist=0.05, max_steps=100)
+
+    for i in range(100):
+        #action = [np.random.randint(6), np.random.randint(2)]
+        try:
+            action = [np.random.randint(100), np.random.randint(100), np.random.randint(8)] #[int(input("action? ")), 1]
+        except KeyboardInterrupt:
+            exit()
+        except:
+            continue
+        if action[2] > 9:
+            continue
+        print('{} steps. action: {}'.format(env.step_count, action))
+        states, reward, done, info = env.step(ction)
+        print('Reward: {}. Done: {}'.format(reward, done))
+        #show_image(states[0])
+        if done:
+            print('Done. New episode starts.')
+            env.reset()
+'''
+if __name__=='__main__':
+    env = UR5Env(render=True, camera_height=96, camera_width=96)
     env = discrete_env(env, task=3, mov_dist=0.03, max_steps=100)
 
     for i in range(100):
@@ -512,31 +544,5 @@ if __name__=='__main__':
         if done:
             print('Done. New episode starts.')
             env.reset()
+'''
 
-    '''
-    grasp = 0.0
-    for i in range(100):
-        x = input('Ctrl+c to exit. next?')
-        if x==' ':
-            x = x[0]
-            grasp = 1.0 - grasp
-            env.move_pos_diff([0.0, 0.0, 0.0], grasp=grasp)
-            continue
-
-        dist = 0.03
-        if x=='w':
-            im_state = env.move_pos_diff([0.0, 0.0, dist], grasp=grasp)
-        elif x=='s':
-            im_state = env.move_pos_diff([0.0, 0.0, -dist], grasp=grasp)
-        elif x=='6':
-            im_state = env.move_pos_diff([dist, 0.0, 0.0], grasp=grasp)
-        elif x=='4':
-            im_state = env.move_pos_diff([-dist, 0.0, 0.0], grasp=grasp)
-        elif x=='8':
-            im_state = env.move_pos_diff([0.0, dist, 0.0], grasp=grasp)
-        elif x=='2':
-            im_state = env.move_pos_diff([0.0, -dist, 0.0], grasp=grasp)
-
-        plt.imshow(im_state)
-        plt.show()
-    '''
