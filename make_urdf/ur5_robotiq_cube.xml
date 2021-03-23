@@ -111,6 +111,8 @@
                                     <geom pos="0 0 -0.095" type="mesh" rgba="0.7 0.7 0.7 1" mesh="wrist2" />
                                     <body name="wrist_3_link" pos="0 0.0823 -1.688e-11" quat="0.707107 -0.707107 0 0">
                                         <inertial pos="0.000417268 -6.01315e-06 0.0112584" quat="0.707057 -0.00361308 -0.00361042 0.707138" mass="0.58242" diaginertia="0.000671715 0.000661298 0.000408944" />
+                                        <camera mode="fixed" name="eye_on_wrist" pos="0 -0.08 0" quat="0 0 -1 0"/>
+
                                         <joint name="wrist_3_joint" pos="0 0 0" axis="0 0 1" limited="true" range="-3.14159 3.14159" />
                                         <geom pos="0 0 -0.0818" quat="0.707107 0.707107 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.7 0.7 0.7 1" mesh="wrist3_visual" />
                                         <geom pos="0 0 -0.0823" quat="0.707107 0.707107 0 0" type="mesh" rgba="0.7 0.7 0.7 1" mesh="wrist3" />
@@ -185,7 +187,7 @@
                 solimp="0.9 0.95 0.001" solref="0.02 1.0" friction="0.1 0.1 0.002"/>
         </body>
 
-        <body name="target_body_2" pos="0.1 0.1 0.9">
+        <body name="target_body_2" pos="0.5 0.5 0.9">
           <joint name="target_2_joint" type="free" limited="false" damping="0" armature="0."/>
           <inertial pos="0 0 0" mass="0.02" diaginertia="0.01 0.01 8e-4" />
           <geom pos="0 0 0" mesh="triangular" type="mesh" conaffinity="1" condim="6" 
