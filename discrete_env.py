@@ -205,7 +205,7 @@ class discrete_env(object):
         u0 = 0.5 * self.env.camera_width
         v0 = 0.5 * self.env.camera_height
         z0 = 0.9  # table height
-        y_cam = np.sin(theta) * (y - cy - np.tan(theta) * (z0 - cz))
+        y_cam = np.cos(theta) * (y - cy - np.tan(theta) * (z0 - cz))
         dv = f * np.cos(theta) / ((cz - z0) / y_cam - np.sin(theta))
         v = dv + v0
         u = - dv * x / y_cam + u0
