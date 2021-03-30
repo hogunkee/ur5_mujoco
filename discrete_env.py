@@ -197,6 +197,20 @@ class discrete_env(object):
         # print()
         return x, y, z
 
+    def pos2pixel(self, x, y):
+        theta = self.cam_theta
+        cx, cy, cz = self.env.sim.model.cam_pos[self.cam_id]
+        fovy = self.env.sim.model.cam_fovy[self.cam_id]
+        f = 0.5 * self.env.camera_height / np.tan(fovy * np.pi / 360)
+        u0 = 0.5 * self.env.camera_width
+        v0 = 0.5 * self.env.camera_height
+        z0 = 0.9  # table height
+        y_cam = np.sin(theta) * (y - cy - np.tan(theta) * (z0 - cz))
+        dv = f * np.cos(theta) / ((cz - z0) / y_cam - np.sin(theta))
+        v = dv + v0
+        u = dv * x / y_cam + u0
+        return u, v
+
     def move2pixel(self, u, v):
         target_pos = np.array(self.pixel2pos(u, v))
         target_pos[2] = 1.05
