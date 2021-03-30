@@ -208,7 +208,7 @@ class discrete_env(object):
         y_cam = np.sin(theta) * (y - cy - np.tan(theta) * (z0 - cz))
         dv = f * np.cos(theta) / ((cz - z0) / y_cam - np.sin(theta))
         v = dv + v0
-        u = dv * x / y_cam + u0
+        u = - dv * x / y_cam + u0
         return u, v
 
     def move2pixel(self, u, v):
