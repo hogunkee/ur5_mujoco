@@ -28,15 +28,21 @@ class discrete_env(object):
         self.cam_theta = 30 * np.pi / 180
         # cam_mat = self.env.sim.data.get_camera_xmat("rlview")
         # cam_pos = self.env.sim.data.get_camera_xpos("rlview")
+        self.env.sim.data.qpos[12:15] = [0, 0, 0.9]
+        self.env.sim.data.qpos[19:22] = [0, 0, 0]
+        self.env.sim.data.qpos[26:29] = [0, 0, 0]
 
         self.env.move_to_pos(self.init_pos, grasp=1.0)
 
     def reset(self):
         glfw.destroy_window(self.env.viewer.window)
         self.env.viewer = None
-        im_state = self.env._init_robot()
+        self.env._init_robot()
         gripper_height, curr_grasp = self.get_gripper_state()
-        self.env.move_to_pos(self.init_pos)
+        self.env.sim.data.qpos[12:15] = [0, 0, 0.9]
+        self.env.sim.data.qpos[19:22] = [0, 0, 0]
+        self.env.sim.data.qpos[26:29] = [0, 0, 0]
+        im_state = self.env.move_to_pos(self.init_pos)
         self.step_count = 0
         return im_state, np.array([gripper_height, curr_grasp])
 
