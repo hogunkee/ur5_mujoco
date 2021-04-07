@@ -58,7 +58,8 @@ class pushpixel_env(object):
             gx1 = np.random.uniform(*range_x)
             gy1 = np.random.uniform(*range_y)
             self.goal1 = [gx1, gy1]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal1), 1, self.colors[0], -1)
+            # self.goal_image[self.pos2pixel(*self.goal1)] = self.colors[0]
+            cv2.circle(self.goal_image, self.pos2pixel(*self.goal1), 2, self.colors[0], -1)
         if self.num_blocks >= 2:
             tx2 = np.random.uniform(*range_x)
             ty2 = np.random.uniform(*range_y)
@@ -67,7 +68,8 @@ class pushpixel_env(object):
             gx2 = np.random.uniform(*range_x)
             gy2 = np.random.uniform(*range_y)
             self.goal2 = [gx2, gy2]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal2), 1, self.colors[1], -1)
+            # self.goal_image[self.pos2pixel(*self.goal2)] = self.colors[1]
+            cv2.circle(self.goal_image, self.pos2pixel(*self.goal2), 2, self.colors[1], -1)
         if self.num_blocks >= 3:
             tx3 = np.random.uniform(*range_x)
             ty3 = np.random.uniform(*range_y)
@@ -76,9 +78,12 @@ class pushpixel_env(object):
             gx3 = np.random.uniform(*range_x)
             gy3 = np.random.uniform(*range_y)
             self.goal3 = [gx3, gy3]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal3), 1, self.colors[2], -1)
+            # self.goal_image[self.pos2pixel(*self.goal3)] = self.colors[2]
+            cv2.circle(self.goal_image, self.pos2pixel(*self.goal3), 2, self.colors[2], -1)
 
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
+        if self.env.data_format=='NCHW':
+            self.goal_image = np.transpose(self.goal_image, [2, 0, 1])
         self.step_count = 0
 
         return im_state
@@ -125,7 +130,7 @@ class pushpixel_env(object):
     def push_from_pixel(self, px, py, theta):
         pos_before = np.array(self.pixel2pos(px, py))
         pos_before[:2] = self.clip_pos(pos_before[:2])
-        pos_after = pos_before + self.mov_dist * np.array([np.cos(theta), np.sin(theta), 0.])
+        pos_after = pos_before + self.mov_dist * np.array([np.sin(theta), np.cos(theta), 0.])
         pos_after[:2] = self.clip_pos(pos_after[:2])
 
         self.env.move_to_pos([pos_before[0], pos_before[1], self.z_prepush], grasp=1.0)

@@ -187,7 +187,7 @@ class UR5Env():
         if self.data_format=='NCHW':
             im_rgb = np.transpose(im_rgb, [2, 0, 1])
 
-        im_rgb = np.flip(im_rgb, axis=1)
+        im_rgb = np.flip(im_rgb, axis=1) / 255.0
         if self.camera_depth:
             im_depth = np.flip(im_depth, axis=1)
             return im_rgb, im_depth
