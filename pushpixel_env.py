@@ -12,14 +12,14 @@ class pushpixel_env(object):
         if self.task==0:
             self.get_reward = self.reward_reach
         elif self.task==1:
-            self.get_reward = self.reward_push_sparse
+            self.get_reward = self.reward_push_dense
         self.mov_dist = mov_dist
         self.range_x = [-0.3, 0.3]
         self.range_y = [-0.2, 0.4]
         self.z_push = 1.05
         self.z_prepush = self.z_push + self.mov_dist
         self.z_collision_check = self.z_push + 0.025
-        self.time_penalty = 1e-2
+        self.time_penalty = 0.02 #0.1
         self.max_steps = max_steps
         self.step_count = 0
         self.threshold = 0.1
@@ -100,6 +100,9 @@ class pushpixel_env(object):
     def step(self, action, grasp=1.0):
         self.pre_gripper_pos = deepcopy(self.env.sim.data.mocap_pos[0])
         self.pre_target_pos = deepcopy(self.env.sim.data.get_body_xpos('target_body_1'))
+        self.pre_pos1 = deepcopy(self.env.sim.data.get_body_xpos('target_body_1')[:2])
+        self.pre_pos2 = deepcopy(self.env.sim.data.get_body_xpos('target_body_2')[:2])
+        self.pre_pos3 = deepcopy(self.env.sim.data.get_body_xpos('target_body_3')[:2])
 
         px, py, theta_idx = action
         if theta_idx >= self.num_bins:
@@ -179,7 +182,37 @@ class pushpixel_env(object):
         return reward, done
 
     def reward_push_dense(self):
-        return -self.time_penalty, False
+        done = False
+        reward = 0.0
+        if self.num_blocks >= 1:
+            pos1 = self.env.sim.data.get_body_xpos('target_body_1')[:2]
+            dist1 = np.linalg.norm(pos1 - self.goal1)
+            if dist1 < self.threshold:
+                reward += 1.0
+            else:
+                pre_dist1 = np.linalg.norm(self.pre_pos1 - self.goal1)
+                reward += pre_dist1 - dist1
+        if self.num_blocks >= 2:
+            pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
+            dist2 = np.linalg.norm(pos2 - self.goal2)
+            if dist2 < self.threshold:
+                reward += 1.0
+            else:
+                pre_dist2 = np.linalg.norm(self.pre_pos2 - self.goal2)
+                reward += pre_dist2 - dist2
+        if self.num_blocks >= 3:
+            pos3 = self.env.sim.data.get_body_xpos('target_body_3')[:2]
+            dist3 = np.linalg.norm(pos3 - self.goal3)
+            if dist3 < self.threshold:
+                reward += 1.0
+            else:
+                pre_dist3 = np.linalg.norm(self.pre_pos3 - self.goal3)
+                reward += pre_dist3 - dist3
+
+        if reward >= self.num_blocks:
+            done = True
+        reward += -self.time_penalty
+        return reward, done
 
     def pixel2pos(self, u, v):
         theta = self.cam_theta
