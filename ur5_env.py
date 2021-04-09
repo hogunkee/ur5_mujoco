@@ -15,8 +15,6 @@ import imageio
 import types
 import time
 
-from transform_utils import quat2mat
-
 import os
 file_path = os.path.dirname(os.path.abspath(__file__))
 

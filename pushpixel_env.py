@@ -1,6 +1,6 @@
 from ur5_env import *
 import cv2
-
+from transform_utils import euler2quat
 
 class pushpixel_env(object):
     def __init__(self, ur5_env, num_blocks=1, mov_dist=0.05, max_steps=50, task=0):
@@ -55,6 +55,8 @@ class pushpixel_env(object):
             ty1 = np.random.uniform(*range_y)
             tz1 = 0.9
             self.env.sim.data.qpos[12:15] = [tx1, ty1, tz1]
+            x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
+            self.env.sim.data.qpos[15:19] = [w, x, y, z]
             gx1 = np.random.uniform(*range_x)
             gy1 = np.random.uniform(*range_y)
             self.goal1 = [gx1, gy1]
@@ -65,6 +67,8 @@ class pushpixel_env(object):
             ty2 = np.random.uniform(*range_y)
             tz2 = 0.9
             self.env.sim.data.qpos[19:22] = [tx2, ty2, tz2]
+            x, y, z, w = euler2quat([0, 0, np.random.uniform(2 * np.pi)])
+            self.env.sim.data.qpos[22:26] = [w, x, y, z]
             gx2 = np.random.uniform(*range_x)
             gy2 = np.random.uniform(*range_y)
             self.goal2 = [gx2, gy2]
@@ -75,6 +79,8 @@ class pushpixel_env(object):
             ty3 = np.random.uniform(*range_y)
             tz3 = 0.9
             self.env.sim.data.qpos[26:29] = [tx3, ty3, tz3]
+            x, y, z, w = euler2quat([0, 0, np.random.uniform(2 * np.pi)])
+            self.env.sim.data.qpos[29:33] = [w, x, y, z]
             gx3 = np.random.uniform(*range_x)
             gy3 = np.random.uniform(*range_y)
             self.goal3 = [gx3, gy3]
