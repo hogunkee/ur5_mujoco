@@ -51,8 +51,8 @@ class pushpixel_env(object):
         self.goal3 = [0., 0.]
         self.goal_image = np.zeros([self.env.camera_height, self.env.camera_width, 3])
         if self.num_blocks >= 1:
-            tx1 = 0.1 #np.random.uniform(*range_x)
-            ty1 = 0.1 #np.random.uniform(*range_y)
+            tx1 = np.random.uniform(*range_x)
+            ty1 = np.random.uniform(*range_y)
             tz1 = 0.9
             self.env.sim.data.qpos[12:15] = [tx1, ty1, tz1]
             gx1 = np.random.uniform(*range_x)
