@@ -128,6 +128,9 @@ class pushpixel_env(object):
         if self.step_count==self.max_steps:
             done = True
 
+        if not self.check_blocks_in_range():
+            done = True
+
         if self.task == 0:
             return [im_state], reward, done, None
         else:
@@ -172,6 +175,20 @@ class pushpixel_env(object):
             reward = -self.time_penalty
             done = False
         return reward, done
+
+    def check_blocks_in_range(self):
+        pos1 = self.env.sim.data.get_body_xpos('target_body_1')[:2]
+        pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
+        pos3 = self.env.sim.data.get_body_xpos('target_body_3')[:2]
+        poses = [pos1, pos2, pos3]
+        self.block_range_x
+        x_max, y_max = np.concatenate(poses[:self.num_blocks]).reshape(-1, 2).max(0)
+        x_min, y_min = np.concatenate(poses[:self.num_blocks]).reshape(-1, 2).min(0)
+        if x_max > self.block_range_x[1] or x_min < self.block_range_x[0]:
+            return False
+        if y_max > self.block_range_y[1] or y_min < self.block_range_y[0]:
+            return False
+        return True
 
     def reward_push_sparse(self):
         done = False
