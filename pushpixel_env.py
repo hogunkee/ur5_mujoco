@@ -214,6 +214,7 @@ class pushpixel_env(object):
 
     def reward_push_dense(self):
         reward_scale = 10
+        min_reward = -2
         done = False
         reward = 0.0
         if self.num_blocks >= 1:
@@ -250,6 +251,7 @@ class pushpixel_env(object):
         if np.sum([self.success1, self.success2, self.success3]) >= self.num_blocks:
             done = True
         reward += -self.time_penalty
+        reward = max(reward, min_reward)
         return reward, done
 
     def pixel2pos(self, u, v):
@@ -311,9 +313,9 @@ if __name__=='__main__':
     for i in range(100):
         #action = [np.random.randint(6), np.random.randint(2)]
         try:
-            action = input("Put action x, y, theta: ")
-            action = [int(a) for a in action.split()]
-            #action = [np.random.randint(10, 64), np.random.randint(10, 64), np.random.randint(8)]
+            # action = input("Put action x, y, theta: ")
+            # action = [int(a) for a in action.split()]
+            action = [np.random.randint(10, 64), np.random.randint(10, 64), np.random.randint(8)]
         except KeyboardInterrupt:
             exit()
         except:
@@ -326,7 +328,6 @@ if __name__=='__main__':
             s = deepcopy(states[0])
             s[states[1].max(2)!=0] = 0
             im = ax.imshow(s + states[1])
-            #plt.show(block=False)
             fig.canvas.draw()
 
         print('Reward: {}. Done: {}'.format(reward, done))
@@ -337,5 +338,4 @@ if __name__=='__main__':
                 s = deepcopy(states[0])
                 s[states[1].max(2)!=0] = 0
                 im = ax.imshow(s + states[1])
-                #plt.show(block=False)
                 fig.canvas.draw()
