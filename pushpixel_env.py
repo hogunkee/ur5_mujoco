@@ -14,15 +14,17 @@ class pushpixel_env(object):
         elif self.task==1:
             self.get_reward = self.reward_push_dense
         self.mov_dist = mov_dist
-        self.range_x = [-0.3, 0.3]
-        self.range_y = [-0.2, 0.4]
+        self.block_range_x = [-0.25, 0.25]
+        self.block_range_y = [-0.15, 0.35]
+        self.eef_range_x = [-0.3, 0.3]
+        self.eef_range_y = [-0.2, 0.4]
         self.z_push = 1.05
         self.z_prepush = self.z_push + self.mov_dist
         self.z_collision_check = self.z_push + 0.025
         self.time_penalty = 0.02 #0.1
         self.max_steps = max_steps
         self.step_count = 0
-        self.threshold = 0.1
+        self.threshold = 0.05
 
         self.init_pos = [0.0, -0.23, 1.4]
 
@@ -41,14 +43,17 @@ class pushpixel_env(object):
 
     def init_env(self):
         self.env._init_robot()
-        range_x = self.range_x
-        range_y = self.range_y
+        range_x = self.block_range_x
+        range_y = self.block_range_y
         self.env.sim.data.qpos[12:15] = [0, 0, 0]
         self.env.sim.data.qpos[19:22] = [0, 0, 0]
         self.env.sim.data.qpos[26:29] = [0, 0, 0]
         self.goal1 = [0., 0.]
         self.goal2 = [0., 0.]
         self.goal3 = [0., 0.]
+        self.success1 = False
+        self.success2 = False
+        self.success3 = False
         self.goal_image = np.zeros([self.env.camera_height, self.env.camera_width, 3])
         if self.num_blocks >= 1:
             tx1 = np.random.uniform(*range_x)
@@ -130,10 +135,12 @@ class pushpixel_env(object):
 
     def clip_pos(self, pose):
         x, y = pose
-        x = np.max((x, self.range_x[0]))
-        x = np.min((x, self.range_x[1]))
-        y = np.max((y, self.range_y[0]))
-        y = np.min((y, self.range_y[1]))
+        range_x = self.eef_range_x
+        range_y = self.eef_range_y
+        x = np.max((x, range_x[0]))
+        x = np.min((x, range_x[1]))
+        y = np.max((y, range_y[0]))
+        y = np.min((y, range_y[1]))
         return x, y
 
     def push_from_pixel(self, px, py, theta):
@@ -188,34 +195,41 @@ class pushpixel_env(object):
         return reward, done
 
     def reward_push_dense(self):
+        reward_scale = 10
         done = False
         reward = 0.0
         if self.num_blocks >= 1:
             pos1 = self.env.sim.data.get_body_xpos('target_body_1')[:2]
             dist1 = np.linalg.norm(pos1 - self.goal1)
-            if dist1 < self.threshold:
-                reward += 1.0
-            else:
-                pre_dist1 = np.linalg.norm(self.pre_pos1 - self.goal1)
-                reward += pre_dist1 - dist1
+            if not self.success1:
+                if dist1 < self.threshold:
+                    reward += 1.0
+                    self.success1 = True
+                else:
+                    pre_dist1 = np.linalg.norm(self.pre_pos1 - self.goal1)
+                    reward += reward_scale * (pre_dist1 - dist1)
         if self.num_blocks >= 2:
             pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
             dist2 = np.linalg.norm(pos2 - self.goal2)
-            if dist2 < self.threshold:
-                reward += 1.0
-            else:
-                pre_dist2 = np.linalg.norm(self.pre_pos2 - self.goal2)
-                reward += pre_dist2 - dist2
+            if not self.success2:
+                if dist2 < self.threshold:
+                    reward += 1.0
+                    self.success2 = True
+                else:
+                    pre_dist2 = np.linalg.norm(self.pre_pos2 - self.goal2)
+                    reward += reward_scale * (pre_dist2 - dist2)
         if self.num_blocks >= 3:
             pos3 = self.env.sim.data.get_body_xpos('target_body_3')[:2]
             dist3 = np.linalg.norm(pos3 - self.goal3)
-            if dist3 < self.threshold:
-                reward += 1.0
-            else:
-                pre_dist3 = np.linalg.norm(self.pre_pos3 - self.goal3)
-                reward += pre_dist3 - dist3
+            if not self.success3:
+                if dist3 < self.threshold:
+                    reward += 1.0
+                    self.success3 = True
+                else:
+                    pre_dist3 = np.linalg.norm(self.pre_pos3 - self.goal3)
+                    reward += reward_scale * (pre_dist3 - dist3)
 
-        if reward >= self.num_blocks:
+        if np.sum([self.success1, self.success2, self.success3]) >= self.num_blocks:
             done = True
         reward += -self.time_penalty
         return reward, done
@@ -261,15 +275,27 @@ class pushpixel_env(object):
 
 
 if __name__=='__main__':
+    visualize = True
     env = UR5Env(render=True, camera_height=64, camera_width=64, control_freq=5)
-    env = pushpixel_env(env, num_blocks=3, mov_dist=0.05, max_steps=100, task=1)
-    frame = env.reset()
-    frames = []
+    env = pushpixel_env(env, num_blocks=2, mov_dist=0.05, max_steps=100, task=1)
+
+    states = env.reset()
+    if visualize:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        s = deepcopy(states[0])
+        s[states[1].max(2)!=0] = 0
+        im = ax.imshow(s + states[1])
+        plt.show(block=False)
+        fig.canvas.draw()
+        fig.canvas.draw()
 
     for i in range(100):
         #action = [np.random.randint(6), np.random.randint(2)]
         try:
-            action = [np.random.randint(10, 64), np.random.randint(10, 64), np.random.randint(8)]
+            action = input("Put action x, y, theta: ")
+            action = [int(a) for a in action.split()]
+            #action = [np.random.randint(10, 64), np.random.randint(10, 64), np.random.randint(8)]
         except KeyboardInterrupt:
             exit()
         except:
@@ -278,10 +304,20 @@ if __name__=='__main__':
             continue
         print('{} steps. action: {}'.format(env.step_count, action))
         states, reward, done, info = env.step(action)
-        #plt.imshow(states[0])
-        #plt.show()
+        if visualize:
+            s = deepcopy(states[0])
+            s[states[1].max(2)!=0] = 0
+            im = ax.imshow(s + states[1])
+            #plt.show(block=False)
+            fig.canvas.draw()
+
         print('Reward: {}. Done: {}'.format(reward, done))
-        #show_image(states[0])
         if done:
             print('Done. New episode starts.')
-            env.reset()
+            states = env.reset()
+            if visualize:
+                s = deepcopy(states[0])
+                s[states[1].max(2)!=0] = 0
+                im = ax.imshow(s + states[1])
+                #plt.show(block=False)
+                fig.canvas.draw()
