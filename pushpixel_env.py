@@ -129,6 +129,7 @@ class pushpixel_env(object):
             done = True
 
         if not self.check_blocks_in_range():
+            reward = -1.
             done = True
 
         if self.task == 0:
