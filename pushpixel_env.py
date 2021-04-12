@@ -66,7 +66,7 @@ class pushpixel_env(object):
             gy1 = np.random.uniform(*range_y)
             self.goal1 = [gx1, gy1]
             # self.goal_image[self.pos2pixel(*self.goal1)] = self.colors[0]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal1), 2, self.colors[0], -1)
+            cv2.circle(self.goal_image, self.pos2pixel(*self.goal1), 1, self.colors[0], -1)
         if self.num_blocks >= 2:
             tx2 = np.random.uniform(*range_x)
             ty2 = np.random.uniform(*range_y)
@@ -78,7 +78,7 @@ class pushpixel_env(object):
             gy2 = np.random.uniform(*range_y)
             self.goal2 = [gx2, gy2]
             # self.goal_image[self.pos2pixel(*self.goal2)] = self.colors[1]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal2), 2, self.colors[1], -1)
+            cv2.circle(self.goal_image, self.pos2pixel(*self.goal2), 1, self.colors[1], -1)
         if self.num_blocks >= 3:
             tx3 = np.random.uniform(*range_x)
             ty3 = np.random.uniform(*range_y)
@@ -90,7 +90,7 @@ class pushpixel_env(object):
             gy3 = np.random.uniform(*range_y)
             self.goal3 = [gx3, gy3]
             # self.goal_image[self.pos2pixel(*self.goal3)] = self.colors[2]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal3), 2, self.colors[2], -1)
+            cv2.circle(self.goal_image, self.pos2pixel(*self.goal3), 1, self.colors[2], -1)
 
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
         if self.env.data_format=='NCHW':
