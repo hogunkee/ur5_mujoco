@@ -1,4 +1,5 @@
 from ur5_env import *
+from reward_functions import *
 import cv2
 from transform_utils import euler2quat
 
@@ -9,10 +10,6 @@ class pushpixel_env(object):
         self.num_bins = 8
 
         self.task = task # 0: Reach / 1: Push
-        if self.task==0:
-            self.get_reward = self.reward_reach
-        elif self.task==1:
-            self.get_reward = self.reward_push_dense
         self.mov_dist = mov_dist
         self.block_range_x = [-0.25, 0.25]
         self.block_range_y = [-0.15, 0.35]
@@ -40,6 +37,13 @@ class pushpixel_env(object):
             ])
 
         self.init_env()
+
+    def get_reward(self):
+        if self.task == 0:
+            return reward_reach(self)
+        elif self.task == 1:
+            return reward_push_reverse(self)
+            #return reward_push_dense(self)
 
     def init_env(self):
         self.env._init_robot()
@@ -120,9 +124,11 @@ class pushpixel_env(object):
             print("Error! theta_idx cannot be bigger than number of angle bins.")
             exit()
         theta = theta_idx * (2*np.pi / self.num_bins)
-        im_state = self.push_from_pixel(px, py, theta)
+        im_state, collision = self.push_from_pixel(px, py, theta)
 
         reward, done = self.get_reward()
+        if collision:
+            reward = -1.0
 
         self.step_count += 1
         if self.step_count==self.max_steps:
@@ -147,36 +153,6 @@ class pushpixel_env(object):
         y = np.min((y, range_y[1]))
         return x, y
 
-    def push_from_pixel(self, px, py, theta):
-        pos_before = np.array(self.pixel2pos(px, py))
-        pos_before[:2] = self.clip_pos(pos_before[:2])
-        pos_after = pos_before + self.mov_dist * np.array([np.sin(theta), np.cos(theta), 0.])
-        pos_after[:2] = self.clip_pos(pos_after[:2])
-
-        self.env.move_to_pos([pos_before[0], pos_before[1], self.z_prepush], grasp=1.0)
-        self.env.move_to_pos([pos_before[0], pos_before[1], self.z_collision_check], grasp=1.0)
-        force = self.env.sim.data.sensordata
-        if np.abs(force[2]) > 1.0 or np.abs(force[5]) > 1.0:
-            print("Collision!")
-            self.env.move_to_pos([pos_before[0], pos_before[1], self.z_prepush], grasp=1.0)
-            im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
-            return im_state
-        self.env.move_to_pos([pos_before[0], pos_before[1], self.z_push], grasp=1.0)
-        self.env.move_to_pos([pos_after[0], pos_after[1], self.z_push], grasp=1.0)
-        self.env.move_to_pos([pos_after[0], pos_after[1], self.z_prepush], grasp=1.0)
-        im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
-        return im_state
-
-    def reward_reach(self):
-        target_pos = self.env.sim.data.get_body_xpos('target_body_1')
-        if np.linalg.norm(target_pos - self.pre_target_pos) > 1e-3:
-            reward = 1.0
-            done = True
-        else:
-            reward = -self.time_penalty
-            done = False
-        return reward, done
-
     def check_blocks_in_range(self):
         pos1 = self.env.sim.data.get_body_xpos('target_body_1')[:2]
         pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
@@ -191,68 +167,25 @@ class pushpixel_env(object):
             return False
         return True
 
-    def reward_push_sparse(self):
-        done = False
-        reward = 0.0
-        if self.num_blocks >= 1:
-            pos1 = self.env.sim.data.get_body_xpos('target_body_1')[:2]
-            if np.linalg.norm(pos1 - self.goal1) < self.threshold:
-                reward += 1.0
-        if self.num_blocks >= 2:
-            pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
-            if np.linalg.norm(pos2 - self.goal2) < self.threshold:
-                reward += 1.0
-        if self.num_blocks >= 3:
-            pos3 = self.env.sim.data.get_body_xpos('target_body_3')[:2]
-            if np.linalg.norm(pos3 - self.goal3) < self.threshold:
-                reward += 1.0
+    def push_from_pixel(self, px, py, theta):
+        pos_before = np.array(self.pixel2pos(px, py))
+        pos_before[:2] = self.clip_pos(pos_before[:2])
+        pos_after = pos_before + self.mov_dist * np.array([np.sin(theta), np.cos(theta), 0.])
+        pos_after[:2] = self.clip_pos(pos_after[:2])
 
-        if reward >= self.num_blocks:
-            done = True
-        reward += -self.time_penalty
-        return reward, done
-
-    def reward_push_dense(self):
-        reward_scale = 10
-        min_reward = -2
-        done = False
-        reward = 0.0
-        if self.num_blocks >= 1:
-            pos1 = self.env.sim.data.get_body_xpos('target_body_1')[:2]
-            dist1 = np.linalg.norm(pos1 - self.goal1)
-            if not self.success1:
-                if dist1 < self.threshold:
-                    reward += 1.0
-                    self.success1 = True
-                else:
-                    pre_dist1 = np.linalg.norm(self.pre_pos1 - self.goal1)
-                    reward += reward_scale * (pre_dist1 - dist1)
-        if self.num_blocks >= 2:
-            pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
-            dist2 = np.linalg.norm(pos2 - self.goal2)
-            if not self.success2:
-                if dist2 < self.threshold:
-                    reward += 1.0
-                    self.success2 = True
-                else:
-                    pre_dist2 = np.linalg.norm(self.pre_pos2 - self.goal2)
-                    reward += reward_scale * (pre_dist2 - dist2)
-        if self.num_blocks >= 3:
-            pos3 = self.env.sim.data.get_body_xpos('target_body_3')[:2]
-            dist3 = np.linalg.norm(pos3 - self.goal3)
-            if not self.success3:
-                if dist3 < self.threshold:
-                    reward += 1.0
-                    self.success3 = True
-                else:
-                    pre_dist3 = np.linalg.norm(self.pre_pos3 - self.goal3)
-                    reward += reward_scale * (pre_dist3 - dist3)
-
-        if np.sum([self.success1, self.success2, self.success3]) >= self.num_blocks:
-            done = True
-        reward += -self.time_penalty
-        reward = max(reward, min_reward)
-        return reward, done
+        self.env.move_to_pos([pos_before[0], pos_before[1], self.z_prepush], grasp=1.0)
+        self.env.move_to_pos([pos_before[0], pos_before[1], self.z_collision_check], grasp=1.0)
+        force = self.env.sim.data.sensordata
+        if np.abs(force[2]) > 1.0 or np.abs(force[5]) > 1.0:
+            print("Collision!")
+            self.env.move_to_pos([pos_before[0], pos_before[1], self.z_prepush], grasp=1.0)
+            im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
+            return im_state, True
+        self.env.move_to_pos([pos_before[0], pos_before[1], self.z_push], grasp=1.0)
+        self.env.move_to_pos([pos_after[0], pos_after[1], self.z_push], grasp=1.0)
+        self.env.move_to_pos([pos_after[0], pos_after[1], self.z_prepush], grasp=1.0)
+        im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
+        return im_state, False
 
     def pixel2pos(self, u, v):
         theta = self.cam_theta
