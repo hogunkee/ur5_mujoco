@@ -126,22 +126,31 @@ class pushpixel_env(object):
         theta = theta_idx * (2*np.pi / self.num_bins)
         im_state, collision = self.push_from_pixel(px, py, theta)
 
-        reward, done = self.get_reward()
+        reward, success = self.get_reward()
         if collision:
-            reward = -1.0
+            reward = -0.1
 
         self.step_count += 1
+        done = success
         if self.step_count==self.max_steps:
             done = True
-
         if not self.check_blocks_in_range():
             reward = -1.
             done = True
 
+        info = {'collision': collision, 'success': success}
+        pre_poses = np.array([self.pre_pos1, self.pre_pos2, self.pre_pos3])[:self.num_blocks]
+        pos1 = deepcopy(self.env.sim.data.get_body_xpos('target_body_1')[:2])
+        pos2 = deepcopy(self.env.sim.data.get_body_xpos('target_body_2')[:2])
+        pos3 = deepcopy(self.env.sim.data.get_body_xpos('target_body_3')[:2])
+        poses = np.array([pos1, pos2, pos3])[:self.num_blocks]
+        info['pre_pose'] = pre_poses
+        info['pose'] = poses
+
         if self.task == 0:
-            return [im_state], reward, done, None
+            return [im_state], reward, done, info
         else:
-            return [im_state, self.goal_image], reward, done, None
+            return [im_state, self.goal_image], reward, done, info
 
     def clip_pos(self, pose):
         x, y = pose
