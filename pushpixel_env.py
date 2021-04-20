@@ -167,7 +167,6 @@ class pushpixel_env(object):
         pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
         pos3 = self.env.sim.data.get_body_xpos('target_body_3')[:2]
         poses = [pos1, pos2, pos3]
-        self.block_range_x
         x_max, y_max = np.concatenate(poses[:self.num_blocks]).reshape(-1, 2).max(0)
         x_min, y_min = np.concatenate(poses[:self.num_blocks]).reshape(-1, 2).min(0)
         if x_max > self.block_range_x[1] or x_min < self.block_range_x[0]:
@@ -238,7 +237,7 @@ class pushpixel_env(object):
 
 if __name__=='__main__':
     visualize = True
-    env = UR5Env(render=True, camera_height=64, camera_width=64, control_freq=5)
+    env = UR5Env(render=True, camera_height=64, camera_width=64, control_freq=5, data_format='NHWC')
     env = pushpixel_env(env, num_blocks=2, mov_dist=0.05, max_steps=100, task=1)
 
     states = env.reset()
