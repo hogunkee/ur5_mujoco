@@ -135,6 +135,7 @@ class pushpixel_env(object):
         if self.step_count==self.max_steps:
             done = True
         if not self.check_blocks_in_range():
+            print("blocks not in feasible area.")
             reward = -1.
             done = True
 
@@ -195,7 +196,7 @@ class pushpixel_env(object):
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
         return im_state, False
 
-    def pixel2pos(self, u, v):
+    def pixel2pos(self, v, u): # u, v
         theta = self.cam_theta
         cx, cy, cz = self.env.sim.model.cam_pos[self.cam_id]
         fovy = self.env.sim.model.cam_fovy[self.cam_id]
@@ -254,9 +255,9 @@ if __name__=='__main__':
     for i in range(100):
         #action = [np.random.randint(6), np.random.randint(2)]
         try:
-            # action = input("Put action x, y, theta: ")
-            # action = [int(a) for a in action.split()]
-            action = [np.random.randint(10, 64), np.random.randint(10, 64), np.random.randint(8)]
+            action = input("Put action x, y, theta: ")
+            action = [int(a) for a in action.split()]
+            # action = [np.random.randint(10, 64), np.random.randint(10, 64), np.random.randint(8)]
         except KeyboardInterrupt:
             exit()
         except:

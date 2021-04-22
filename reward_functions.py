@@ -74,7 +74,7 @@ def reward_push_dense(self):
     return reward, done
 
 def reward_push_reverse(self):
-    reward_scale = 0.1
+    reward_scale = 0.5
     min_reward = -2
     done = False
     reward = 0.0
@@ -85,7 +85,9 @@ def reward_push_reverse(self):
             if dist1 < self.threshold:
                 self.success1 = True
             pre_dist1 = np.linalg.norm(self.pre_pos1 - self.goal1)
-            reward += reward_scale * min(100, (1/dist1 - 1/pre_dist1))
+            if dist1 < pre_dist1 - 0.001:
+                reward += 1
+            reward += reward_scale * min(10, (1/dist1 - 1/pre_dist1))
     if self.num_blocks >= 2:
         pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
         dist2 = np.linalg.norm(pos2 - self.goal2)
@@ -93,7 +95,9 @@ def reward_push_reverse(self):
             if dist2 < self.threshold:
                 self.success2 = True
             pre_dist2 = np.linalg.norm(self.pre_pos2 - self.goal2)
-            reward += reward_scale * min(100, (1/dist2 - 1/pre_dist2))
+            if dist2 < pre_dist2 - 0.001:
+                reward += 1
+            reward += reward_scale * min(10, (1/dist2 - 1/pre_dist2))
     if self.num_blocks >= 3:
         pos3 = self.env.sim.data.get_body_xpos('target_body_3')[:2]
         dist3 = np.linalg.norm(pos3 - self.goal3)
@@ -101,7 +105,9 @@ def reward_push_reverse(self):
             if dist3 < self.threshold:
                 self.success3 = True
             pre_dist3 = np.linalg.norm(self.pre_pos3 - self.goal3)
-            reward += reward_scale * min(100, (1/dist3 - 1/pre_dist3))
+            if dist3 < pre_dist3 - 0.001:
+                reward += 1
+            reward += reward_scale * min(10, (1/dist3 - 1/pre_dist3))
 
     if np.sum([self.success1, self.success2, self.success3]) >= self.num_blocks:
         done = True
