@@ -72,7 +72,7 @@ class UR5Env():
         self.camera_depth = camera_depth
         self.camera_name = camera_name
 
-        #self._init_robot()
+        self._init_robot()
 
 
     def _init_robot(self):
