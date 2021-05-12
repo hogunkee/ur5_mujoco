@@ -37,6 +37,7 @@ class pushpixel_env(object):
             ])
 
         self.init_env()
+        # self.env.sim.forward()
 
     def get_reward(self):
         if self.task == 0:
@@ -95,6 +96,7 @@ class pushpixel_env(object):
             self.goal3 = [gx3, gy3]
             # self.goal_image[self.pos2pixel(*self.goal3)] = self.colors[2]
             cv2.circle(self.goal_image, self.pos2pixel(*self.goal3), 1, self.colors[2], -1)
+        self.env.sim.forward()
 
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
         if self.env.data_format=='NCHW':
@@ -104,8 +106,8 @@ class pushpixel_env(object):
         return im_state
 
     def reset(self):
-        glfw.destroy_window(self.env.viewer.window)
-        self.env.viewer = None
+        # glfw.destroy_window(self.env.viewer.window)
+        # self.env.viewer = None
         im_state = self.init_env()
         if self.task==0:
             return [im_state]

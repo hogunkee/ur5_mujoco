@@ -1,166 +1,9 @@
-import cv2
-import glfw
-import numpy as np
-import imageio
-import time
-import mujoco_py
-import os
-file_path = os.path.dirname(os.path.abspath(__file__))
-from mujoco_py import load_model_from_path, MjSim, MjViewer
-from matplotlib import pyplot as plt
-from copy import deepcopy
-
+from ur5_env import *
 from reward_functions import *
+import cv2
 from transform_utils import euler2quat
 
-
-class UR5Env():
-    def __init__(
-            self,
-            render=True,
-            image_state=True,
-            camera_height=64,
-            camera_width=64,
-            control_freq=8,
-            data_format='NHWC',
-            camera_depth=False,
-            camera_name='rlview',
-            xml_ver='push'
-    ):
-        if xml_ver=='touch':
-            self.model_xml = 'make_urdf/ur5_robotiq_touch.xml'
-        elif xml_ver=='push':
-            self.model_xml = 'make_urdf/ur5_robotiq_push.xml'
-
-        self.render = render
-        self.image_state = image_state
-        self.camera_height = camera_height
-        self.camera_width = camera_width
-        self.control_freq = control_freq
-        self.data_format = data_format
-        self.camera_depth = camera_depth
-        self.camera_name = camera_name
-
-    def _init_robot(self):
-        self.model = load_model_from_path(os.path.join(file_path, self.model_xml))
-        # self.model = load_model_from_path(os.path.join(file_path, 'make_urdf/ur5_robotiq.xml'))
-        self.n_substeps = 1  # 20
-        self.sim = MjSim(self.model, nsubsteps=self.n_substeps)
-        self.viewer = MjViewer(self.sim)
-        self.viewer._hide_overlay = True
-
-        self.arm_joint_list = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint',
-                               'wrist_2_joint', 'wrist_3_joint']
-        self.gripper_joint_list = ['left_finger_joint', 'right_finger_joint']
-
-        # Camera pose
-        lookat_refer = [0., 0., 0.9]  # self.sim.data.get_body_xpos('target_body_1')
-        self.viewer.cam.lookat[0] = lookat_refer[0]
-        self.viewer.cam.lookat[1] = lookat_refer[1]
-        self.viewer.cam.lookat[2] = lookat_refer[2]
-        self.viewer.cam.azimuth = 0  # -65 #-75 #-90 #-75
-        self.viewer.cam.elevation = -30  # -30 #-60 #-15
-        self.viewer.cam.distance = 2.0  # 1.5
-
-        str = ''
-        for joint_name in self.gripper_joint_list:
-            str += "{} : {:.3f}, ".format(joint_name, self.sim.data.get_joint_qpos(joint_name))
-
-        self.init_arm_pos = np.array([-np.pi / 2, -np.pi / 2, -np.pi / 2, -np.pi / 2, np.pi / 2, 0.0])
-        for joint_idx, joint_name in enumerate(self.arm_joint_list):
-            self.sim.data.set_joint_qpos(joint_name, self.init_arm_pos[joint_idx])
-            self.sim.data.set_joint_qvel(joint_name, 0.0)
-        self.reset_mocap_welds()
-
-        im_state = self.move_to_pos()
-        return im_state
-
-    def reset_mocap_welds(self):
-        """Resets the mocap welds that we use for actuation. """
-        if self.sim.model.nmocap > 0 and self.sim.model.eq_data is not None:
-            for i in range(self.sim.model.eq_data.shape[0]):
-                if self.sim.model.eq_type[i] == mujoco_py.const.EQ_WELD:
-                    self.sim.model.eq_data[i, :] = np.array(
-                        [0., 0., 0., 1., 0., 0., 0.])
-        self.sim.forward()
-
-    def move_to_pos(self, pos=[0.0, 0.0, 1.20], quat=[0, 1, 0, 0], grasp=0.0):
-        control_timestep = 1. / self.control_freq
-        cur_time = time.time()
-        end_time = cur_time + control_timestep
-
-        while cur_time < end_time:
-            self.sim.data.mocap_pos[0] = np.array(pos)
-            self.sim.data.mocap_quat[0] = np.array(quat)
-
-            self.sim.step()
-            cur_time += self.sim.model.opt.timestep
-            if self.render:
-                self.sim.render(mode='window')
-            else:
-                self.sim.render(camera_name=self.camera_name, width=self.camera_width, height=self.camera_height,
-                                mode='offscreen')
-
-        pre_grasp = float(bool(sum(self.sim.data.ctrl)))
-        self.sim.data.ctrl[0] = grasp
-        self.sim.data.ctrl[1] = grasp
-        if grasp != pre_grasp:
-            cur_time = time.time()
-            end_time = cur_time + 2.0 * control_timestep
-            # for i in range(20):
-            while cur_time < end_time:
-                self.sim.step()
-                cur_time += self.sim.model.opt.timestep
-                if self.render:
-                    self.sim.render(mode='window')
-                else:
-                    self.sim.render(camera_name=self.camera_name, width=self.camera_width, height=self.camera_height,
-                                    mode='offscreen')
-
-        diff_pos = np.linalg.norm(np.array(pos) - self.sim.data.get_body_xpos('robot0:mocap'))
-        diff_quat = np.linalg.norm(np.array(quat) - self.sim.data.get_body_xquat('robot0:mocap'))
-        if diff_pos + diff_quat > 1e-3:
-            print('Failed to move to target position.')
-
-        if self.render:
-            self.viewer._set_mujoco_buffers()
-            self.sim.render(camera_name=self.camera_name, width=self.camera_width, height=self.camera_height,
-                            depth=self.camera_depth, mode='offscreen')
-            camera_obs = self.sim.render(camera_name=self.camera_name, width=self.camera_width,
-                                         height=self.camera_height, depth=self.camera_depth, mode='offscreen')
-            if self.camera_depth:
-                im_rgb, im_depth = camera_obs
-            else:
-                im_rgb = camera_obs
-            self.viewer._set_mujoco_buffers()
-
-        else:
-            self.sim.render(camera_name=self.camera_name, width=self.camera_width, height=self.camera_height,
-                            mode='offscreen')
-            camera_obs = self.sim.render(camera_name=self.camera_name, width=self.camera_width,
-                                         height=self.camera_height, depth=self.camera_depth, mode='offscreen')
-            if self.camera_depth:
-                im_rgb, im_depth = camera_obs
-            else:
-                im_rgb = camera_obs
-
-        im_rgb = np.flip(im_rgb, axis=1) / 255.0
-        if self.data_format == 'NCHW':
-            im_rgb = np.transpose(im_rgb, [2, 0, 1])
-
-        if self.camera_depth:
-            im_depth = np.flip(im_depth, axis=1)
-            return im_rgb, im_depth
-        else:
-            return im_rgb
-
-    def move_pos_diff(self, posdiff, quat=[0, 1, 0, 0], grasp=0.0):
-        cur_pos = deepcopy(self.sim.data.mocap_pos[0])  # - self.sim.data.get_body_xpos('box_link')
-        target_pos = cur_pos + np.array(posdiff)
-        return self.move_to_pos(target_pos, quat, grasp)
-
-
-class pushpixel_env(object):
+class targetpush_env(object):
     def __init__(self, ur5_env, num_blocks=1, mov_dist=0.05, max_steps=50, task=0):
         self.env = ur5_env 
         self.num_blocks = num_blocks
@@ -209,9 +52,6 @@ class pushpixel_env(object):
         self.env.sim.data.qpos[12:15] = [0, 0, 0]
         self.env.sim.data.qpos[19:22] = [0, 0, 0]
         self.env.sim.data.qpos[26:29] = [0, 0, 0]
-        self.goal1 = [0., 0.]
-        self.goal2 = [0., 0.]
-        self.goal3 = [0., 0.]
         self.success1 = False
         self.success2 = False
         self.success3 = False
@@ -223,11 +63,6 @@ class pushpixel_env(object):
             self.env.sim.data.qpos[12:15] = [tx1, ty1, tz1]
             x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
             self.env.sim.data.qpos[15:19] = [w, x, y, z]
-            gx1 = np.random.uniform(*range_x)
-            gy1 = np.random.uniform(*range_y)
-            self.goal1 = [gx1, gy1]
-            # self.goal_image[self.pos2pixel(*self.goal1)] = self.colors[0]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal1), 1, self.colors[0], -1)
         if self.num_blocks >= 2:
             tx2 = np.random.uniform(*range_x)
             ty2 = np.random.uniform(*range_y)
@@ -235,11 +70,6 @@ class pushpixel_env(object):
             self.env.sim.data.qpos[19:22] = [tx2, ty2, tz2]
             x, y, z, w = euler2quat([0, 0, np.random.uniform(2 * np.pi)])
             self.env.sim.data.qpos[22:26] = [w, x, y, z]
-            gx2 = np.random.uniform(*range_x)
-            gy2 = np.random.uniform(*range_y)
-            self.goal2 = [gx2, gy2]
-            # self.goal_image[self.pos2pixel(*self.goal2)] = self.colors[1]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal2), 1, self.colors[1], -1)
         if self.num_blocks >= 3:
             tx3 = np.random.uniform(*range_x)
             ty3 = np.random.uniform(*range_y)
@@ -247,12 +77,7 @@ class pushpixel_env(object):
             self.env.sim.data.qpos[26:29] = [tx3, ty3, tz3]
             x, y, z, w = euler2quat([0, 0, np.random.uniform(2 * np.pi)])
             self.env.sim.data.qpos[29:33] = [w, x, y, z]
-            gx3 = np.random.uniform(*range_x)
-            gy3 = np.random.uniform(*range_y)
-            self.goal3 = [gx3, gy3]
-            # self.goal_image[self.pos2pixel(*self.goal3)] = self.colors[2]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal3), 1, self.colors[2], -1)
-
+        self.env.sim.forward()
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
         if self.env.data_format=='NCHW':
             self.goal_image = np.transpose(self.goal_image, [2, 0, 1])
@@ -261,8 +86,6 @@ class pushpixel_env(object):
         return im_state
 
     def reset(self):
-        glfw.destroy_window(self.env.viewer.window)
-        self.env.viewer = None
         im_state = self.init_env()
         if self.task==0:
             return [im_state]
@@ -271,10 +94,9 @@ class pushpixel_env(object):
 
     def step(self, action, grasp=1.0):
         self.pre_gripper_pos = deepcopy(self.env.sim.data.mocap_pos[0])
-        self.pre_target_pos = deepcopy(self.env.sim.data.get_body_xpos('target_body_1'))
-        self.pre_pos1 = deepcopy(self.env.sim.data.get_body_xpos('target_body_1')[:2])
-        self.pre_pos2 = deepcopy(self.env.sim.data.get_body_xpos('target_body_2')[:2])
-        self.pre_pos3 = deepcopy(self.env.sim.data.get_body_xpos('target_body_3')[:2])
+        self.pre_pos1 = deepcopy(self.env.sim.data.get_body_xpos('object_1')[:2])
+        self.pre_pos2 = deepcopy(self.env.sim.data.get_body_xpos('object_2')[:2])
+        self.pre_pos3 = deepcopy(self.env.sim.data.get_body_xpos('object_3')[:2])
 
         px, py, theta_idx = action
         if theta_idx >= self.num_bins:
@@ -298,9 +120,9 @@ class pushpixel_env(object):
 
         info = {'collision': collision, 'success': success}
         pre_poses = np.array([self.pre_pos1, self.pre_pos2, self.pre_pos3])[:self.num_blocks]
-        pos1 = deepcopy(self.env.sim.data.get_body_xpos('target_body_1')[:2])
-        pos2 = deepcopy(self.env.sim.data.get_body_xpos('target_body_2')[:2])
-        pos3 = deepcopy(self.env.sim.data.get_body_xpos('target_body_3')[:2])
+        pos1 = deepcopy(self.env.sim.data.get_body_xpos('object_1')[:2])
+        pos2 = deepcopy(self.env.sim.data.get_body_xpos('object_2')[:2])
+        pos3 = deepcopy(self.env.sim.data.get_body_xpos('object_3')[:2])
         poses = np.array([pos1, pos2, pos3])[:self.num_blocks]
         info['pre_pose'] = pre_poses
         info['pose'] = poses
@@ -321,9 +143,9 @@ class pushpixel_env(object):
         return x, y
 
     def check_blocks_in_range(self):
-        pos1 = self.env.sim.data.get_body_xpos('target_body_1')[:2]
-        pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
-        pos3 = self.env.sim.data.get_body_xpos('target_body_3')[:2]
+        pos1 = self.env.sim.data.get_body_xpos('object_1')[:2]
+        pos2 = self.env.sim.data.get_body_xpos('object_2')[:2]
+        pos3 = self.env.sim.data.get_body_xpos('object_3')[:2]
         poses = [pos1, pos2, pos3]
         x_max, y_max = np.concatenate(poses[:self.num_blocks]).reshape(-1, 2).max(0)
         x_min, y_min = np.concatenate(poses[:self.num_blocks]).reshape(-1, 2).min(0)
@@ -395,13 +217,9 @@ class pushpixel_env(object):
 
 if __name__=='__main__':
     visualize = True
-    ver = 0
-    if ver==0:
-        xml_ver = 'touch'
-    elif ver==1:
-        xml_ver = 'push'
+    xml_ver = 1
     env = UR5Env(render=True, camera_height=64, camera_width=64, control_freq=5, data_format='NHWC', xml_ver=xml_ver)
-    env = pushpixel_env(env, num_blocks=2, mov_dist=0.05, max_steps=100, task=1)
+    env = targetpush_env(env, num_blocks=2, mov_dist=0.05, max_steps=100, task=1)
 
     states = env.reset()
     if visualize:
@@ -415,11 +233,11 @@ if __name__=='__main__':
         fig.canvas.draw()
 
     for i in range(100):
-        #action = [np.random.randint(6), np.random.randint(2)]
+        # action = [np.random.randint(6), np.random.randint(2), np.random.randint]
         try:
-            action = input("Put action x, y, theta: ")
-            action = [int(a) for a in action.split()]
-            # action = [np.random.randint(10, 64), np.random.randint(10, 64), np.random.randint(8)]
+            # action = input("Put action x, y, theta: ")
+            # action = [int(a) for a in action.split()]
+            action = [np.random.randint(10, 64), np.random.randint(10, 64), np.random.randint(8)]
         except KeyboardInterrupt:
             exit()
         except:

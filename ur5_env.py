@@ -58,10 +58,15 @@ class UR5Env():
             control_freq=8,
             data_format='NHWC',
 	        camera_depth=False,
-            camera_name='rlview'
+            camera_name='rlview',
+            xml_ver=0
             ):
-
-        self.model_xml = 'make_urdf/ur5_robotiq_cube.xml'
+        if xml_ver==0:
+            self.model_xml = 'make_urdf/ur5_robotiq_cube.xml'
+        elif xml_ver==1:
+            self.model_xml = 'make_urdf/ur5_robotiq_touch.xml'
+        elif xml_ver==2:
+            self.model_xml = 'make_urdf/ur5_robotiq_push.xml'
 
         self.render = render
         self.image_state = image_state
@@ -72,34 +77,33 @@ class UR5Env():
         self.camera_depth = camera_depth
         self.camera_name = camera_name
 
-        self._init_robot()
-
-
-    def _init_robot(self):
         self.model = load_model_from_path(os.path.join(file_path, self.model_xml))
-        #self.model = load_model_from_path(os.path.join(file_path, 'make_urdf/ur5_robotiq.xml'))
-        self.n_substeps = 1 #20
+        # self.model = load_model_from_path(os.path.join(file_path, 'make_urdf/ur5_robotiq.xml'))
+        self.n_substeps = 1  # 20
         self.sim = MjSim(self.model, nsubsteps=self.n_substeps)
         self.viewer = MjViewer(self.sim)
         self.viewer._hide_overlay = True
-
-        self.arm_joint_list = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-        self.gripper_joint_list = ['left_finger_joint', 'right_finger_joint']
-
         # Camera pose
-        lookat_refer = [0., 0., 0.9] #self.sim.data.get_body_xpos('target_body_1')
+        lookat_refer = [0., 0., 0.9]  # self.sim.data.get_body_xpos('target_body_1')
         self.viewer.cam.lookat[0] = lookat_refer[0]
         self.viewer.cam.lookat[1] = lookat_refer[1]
         self.viewer.cam.lookat[2] = lookat_refer[2]
-        self.viewer.cam.azimuth = 0 #-65 #-75 #-90 #-75
-        self.viewer.cam.elevation = -30 #-30 #-60 #-15
-        self.viewer.cam.distance = 2.0 #1.5
+        self.viewer.cam.azimuth = 0  # -65 #-75 #-90 #-75
+        self.viewer.cam.elevation = -30  # -30 #-60 #-15
+        self.viewer.cam.distance = 2.0  # 1.5
+
+        self._init_robot()
+        self.sim.forward()
+
+
+    def _init_robot(self):
+        self.arm_joint_list = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
+        self.gripper_joint_list = ['left_finger_joint', 'right_finger_joint']
 
         str = ''
         for joint_name in self.gripper_joint_list:
             str += "{} : {:.3f}, ".format(joint_name, self.sim.data.get_joint_qpos(joint_name))
         # print(str)
-
 
         self.init_arm_pos = np.array([-np.pi/2, -np.pi/2, -np.pi/2, -np.pi/2, np.pi/2, 0.0])
         for joint_idx, joint_name in enumerate(self.arm_joint_list):
@@ -130,7 +134,7 @@ class UR5Env():
                 if self.sim.model.eq_type[i] == mujoco_py.const.EQ_WELD:
                     self.sim.model.eq_data[i, :] = np.array(
                         [0., 0., 0., 1., 0., 0., 0.])
-        self.sim.forward()
+        # self.sim.forward()
     
     def move_to_pos(self, pos=[0.0, 0.0, 1.20], quat=[0, 1, 0, 0], grasp=0.0):
         control_timestep = 1. / self.control_freq

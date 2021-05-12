@@ -79,7 +79,7 @@ def reward_push_reverse(self):
     done = False
     reward = 0.0
     if self.num_blocks >= 1:
-        pos1 = self.env.sim.data.get_body_xpos('target_body_1')[:2]
+        pos1 = self.env.sim.data.get_body_xpos('object_1')[:2]
         dist1 = np.linalg.norm(pos1 - self.goal1)
         if not self.success1:
             if dist1 < self.threshold:
@@ -89,7 +89,7 @@ def reward_push_reverse(self):
                 reward += 1
             reward += reward_scale * min(10, (1/dist1 - 1/pre_dist1))
     if self.num_blocks >= 2:
-        pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
+        pos2 = self.env.sim.data.get_body_xpos('object_2')[:2]
         dist2 = np.linalg.norm(pos2 - self.goal2)
         if not self.success2:
             if dist2 < self.threshold:
@@ -99,7 +99,7 @@ def reward_push_reverse(self):
                 reward += 1
             reward += reward_scale * min(10, (1/dist2 - 1/pre_dist2))
     if self.num_blocks >= 3:
-        pos3 = self.env.sim.data.get_body_xpos('target_body_3')[:2]
+        pos3 = self.env.sim.data.get_body_xpos('object_3')[:2]
         dist3 = np.linalg.norm(pos3 - self.goal3)
         if not self.success3:
             if dist3 < self.threshold:

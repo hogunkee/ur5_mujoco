@@ -1,6 +1,6 @@
 <mujoco model="ur5_robotiq_gripper">
     <compiler angle="radian" meshdir="meshes_mujoco/" />
-    <size njmax="500" nconmax="100" />
+    <size njmax="1500" nconmax="100" />
 	<option timestep="0.002">
 		<flag warmstart="enable"></flag>
 	</option>
@@ -181,26 +181,61 @@
         </body>
 
         <!--CUBE-->
-        <body name="target_body_1" pos="1.0 1.0 0.0">
+        <body name="object_1" pos="0.0 0.0 1.0">
             <joint name="target_1_joint" type="free" limited="false" damping="0" armature="0."/>
             <geom name="target_1" pos="0 0 0" size="0.035 0.035 0.0175" type="box" 
                 rgba="0.6784 1.0 0.1843 1" condim="3" mass="0.02" 
                 solimp="0.9 0.95 0.001" solref="0.02 1.0" friction="0.1 0.1 0.002"/>
         </body>
 
-        <body name="target_body_2" pos="1.0 1.0 0.0">
-          <joint name="target_2_joint" type="free" limited="false" damping="0" armature="0."/>
+        <body name="object_2" pos="0.0 0.0 1.0">
+            <joint name="target_2_joint" type="free" limited="false" damping="0" armature="0."/>
+            <geom name="target_2" pos="0 0 0" size="0.02 0.045 0.0175" type="box"
+                rgba="0.0 0.7 0.7 1" condim="3" mass="0.02"
+                solimp="0.9 0.95 0.001" solref="0.02 1.0" friction="0.1 0.1 0.002"/>
+        </body>
+
+        <body name="object_3" pos="0.0 0.0 1.0">
+            <joint name="target_3_joint" type="free" limited="false" damping="0" armature="0."/>
+            <geom name="target_3" pos="0 0 0" size="0.035 0.035 0.0175" type="box"
+                rgba="0.85 0.35 0.4 0.7" condim="3" mass="0.02"
+                solimp="0.9 0.95 0.001" solref="0.02 1.0" friction="0.1 0.1 0.002"/>
+        </body>
+
+        <body name="object_4" pos="0.0 0.0 1.0">
+            <joint name="target_4_joint" type="free" limited="false" damping="0" armature="0."/>
+            <geom name="target_4" pos="0 0 0" size="0.0175 0.0175 0.0175" type="box"
+                rgba="0 0 1.0 1" condim="3" mass="0.02"
+                solimp="0.9 0.95 0.001" solref="0.02 1.0" friction="0.1 0.1 0.002"/>
+        </body>
+
+        <body name="object_5" pos="0.0 0.0 1.0">
+          <joint name="target_5_joint" type="free" limited="false" damping="0" armature="0."/>
           <inertial pos="0 0 0" mass="0.02" diaginertia="0.01 0.01 8e-4" />
           <geom pos="0 0 0" mesh="triangular" type="mesh" conaffinity="1" condim="6" 
               rgba="0.93 0.545 0.93 1" friction="0.1 0.1 0.002" solref="0.02 1.0"/>
-          <!--geom pos="0 0 0" mesh="triangular" type="mesh" solimp="0.99 0.95 0.001" solref="0.02 1.0" rgba="1 0 0 1" mass="0.01" friction="1.0 1.0 1.0"/-->
         </body>
 
-        <body name="target_body_3" pos="1.0 1.0 0.0">
-          <joint name="target_3_joint" type="free" limited="false" damping="0." armature="0."/>
+        <body name="object_6" pos="0.0 0.0 1.0">
+          <joint name="target_6_joint" type="free" limited="false" damping="0" armature="0."/>
+          <inertial pos="0 0 0" mass="0.02" diaginertia="0.01 0.01 8e-4" />
+          <geom pos="0 0 0" mesh="triangular" type="mesh" conaffinity="1" condim="6"
+              rgba="0.46 0.545 0.93 0.8" friction="0.1 0.1 0.002" solref="0.02 1.0"/>
+        </body>
+
+        <body name="object_7" pos="0.0 0.0 1.0">
+          <joint name="target_7_joint" type="free" limited="false" damping="0." armature="0."/>
           <inertial pos="0 0 0" mass="0.02" diaginertia="8.80012e-03 8.80012e-03 8.80012e-03"/>
-          <geom name="objGeom" pos="0 0 0" size="0.0175 0.0175" type="cylinder" 
+          <geom name="obj_7_Geom" pos="0 0 0" size="0.0175 0.0175" type="cylinder"
               rgba="0.9686 0.902 0 1" condim="4" solimp="0.99 0.99 0.01" solref="0.01 1" 
+              friction="0.1 0.1 0.0002" contype="1" conaffinity="1" />
+        </body>
+
+        <body name="object_8" pos="0.0 0.0 1.0">
+          <joint name="target_8_joint" type="free" limited="false" damping="0." armature="0."/>
+          <inertial pos="0 0 0" mass="0.02" diaginertia="8.80012e-03 8.80012e-03 8.80012e-03"/>
+          <geom name="obj_8_Geom" pos="0 0 0" size="0.0225 0.0175" type="cylinder"
+              rgba="0.75 0.0 0.85 1" condim="4" solimp="0.99 0.99 0.01" solref="0.01 1"
               friction="0.1 0.1 0.0002" contype="1" conaffinity="1" />
         </body>
 
