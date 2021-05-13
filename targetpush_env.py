@@ -56,6 +56,7 @@ class targetpush_env(object):
 
         if self.task==1:
             self.goal_image = np.zeros([self.env.camera_height, self.env.camera_width, 3])
+            self.target_obj = np.random.choice(self.selected)
 
         check_feasible = False
         while not check_feasible:
@@ -64,12 +65,17 @@ class targetpush_env(object):
                     if obj_idx in self.selected:
                         tx = np.random.uniform(*range_x)
                         ty = np.random.uniform(*range_y)
+                        check_near = np.linalg.norm([tx, ty]) < 0.10
+                        while self.task==1 and check_near:
+                            tx = np.random.uniform(*range_x)
+                            ty = np.random.uniform(*range_y)
+                            check_near = np.linalg.norm([tx, ty]) < 0.10
                         tz = 0.9
                         self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [tx, ty, tz]
                         x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
-                        self.env.sim.data.qpos[7*obj_idx + 15: 7*obj_idx + 19] = [w, x, y, z]
+                        elf.env.sim.data.qpos[7*obj_idx + 15: 7*obj_idx + 19] = [w, x, y, z]
                     else:
-                        self.env.sim.data.qpos[7 * obj_idx + 12: 7 * obj_idx + 15] = [0, 0, 0]
+                        self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [0, 0, 0]
                 self.env.sim.forward()
             except:
                 continue
@@ -107,6 +113,8 @@ class targetpush_env(object):
             poses.append(pre_pos)
 
         info = {}
+        info['obj_indices'] = self.selected
+        info['target_obj_idx'] = self.target_obj
         info['collision'] = collision
         info['pre_poses'] = pre_poses
         info['poses'] = poses
@@ -124,7 +132,6 @@ class targetpush_env(object):
             print("blocks not in feasible area.")
             reward = -1.
             done = True
-
 
         if self.task == 0:
             return [im_state], reward, done, info

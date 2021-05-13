@@ -12,7 +12,17 @@ def reward_touch(self, info):
     return reward, done
 
 def reward_targetpush(self, info):
-    return 0.0, False
+    target_idx = info['obj_indices'].index(info['target_obj_idx'])
+    pre_poses = np.array(info['pre_poses'])
+    poses = np.array(info['poses'])
+    check_near = np.linalg.norm(pre_poses - poses, axis=1) < 0.05
+    if check_near.any():
+        done = True
+        if check_near[target_idx]:
+            reward = 1.0
+        else:
+            reward = 0.0
+    return reward, done
 
 def reward_reach(self):
     target_pos = self.env.sim.data.get_body_xpos('target_body_1')
