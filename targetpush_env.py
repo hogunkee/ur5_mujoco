@@ -69,7 +69,7 @@ class targetpush_env(object):
                 self.env.sim.data.qpos[7 * obj_idx + 12: 7 * obj_idx + 15] = [0, 0, 0]
         self.env.sim.forward()
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
-        if self.env.data_format=='NCHW':
+        if self.task==0 and self.env.data_format=='NCHW':
             self.goal_image = np.transpose(self.goal_image, [2, 0, 1])
         self.step_count = 0
 
