@@ -56,7 +56,7 @@ class targetpush_env(object):
                             self.num_select, replace=False)
 
         if self.task==1:
-            self.target_obj = np.random.choice(self.selected, 1)
+            self.target_obj = np.random.choice(self.selected)
             self.goal_image = imageio.imread('target_images/object_%d.png'%self.target_obj)
 
         x = np.linspace(range_x[0]+0.05, range_x[1]-0.05, 7)
@@ -80,7 +80,7 @@ class targetpush_env(object):
                         tz = 0.9
                         self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [tx, ty, tz]
                         x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
-                        self.env.sim.data.qpos[7*obj_idx + 15: 7*obj_idx + 19] = [w, x, y, z]
+                        elf.env.sim.data.qpos[7*obj_idx + 15: 7*obj_idx + 19] = [w, x, y, z]
                     else:
                         self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [0, 0, 0]
                 self.env.sim.step()
@@ -122,6 +122,8 @@ class targetpush_env(object):
             poses.append(pos)
 
         info = {}
+        info['obj_indices'] = self.selected
+        info['target_obj_idx'] = self.target_obj
         info['collision'] = collision
         info['pre_poses'] = np.array(pre_poses)
         info['poses'] = np.array(poses)
@@ -139,7 +141,6 @@ class targetpush_env(object):
             print("blocks not in feasible area.")
             reward = -1.
             done = True
-
 
         if self.task == 0:
             return [im_state], reward, done, info
