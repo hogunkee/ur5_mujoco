@@ -7,9 +7,11 @@ class targetpush_env(object):
     def __init__(self, ur5_env, num_blocks=1, mov_dist=0.05, max_steps=50, task=0):
         self.env = ur5_env 
         self.num_blocks = num_blocks
+        self.num_total_blocks = 9
         self.num_bins = 8
 
         self.task = task # 0: Reach / 1: Push
+        self.num_select = 5
         self.mov_dist = mov_dist
         self.block_range_x = [-0.25, 0.25]
         self.block_range_y = [-0.15, 0.35]
@@ -38,45 +40,33 @@ class targetpush_env(object):
 
         self.init_env()
 
-    def get_reward(self):
+    def get_reward(self, info):
         if self.task == 0:
-            return reward_reach(self)
+            return reward_touch(self, info)
         elif self.task == 1:
-            return reward_push_reverse(self)
-            #return reward_push_dense(self)
+            return reward_targetpush(self, info)
 
     def init_env(self):
         self.env._init_robot()
         range_x = self.block_range_x
         range_y = self.block_range_y
-        self.env.sim.data.qpos[12:15] = [0, 0, 0]
-        self.env.sim.data.qpos[19:22] = [0, 0, 0]
-        self.env.sim.data.qpos[26:29] = [0, 0, 0]
-        self.success1 = False
-        self.success2 = False
-        self.success3 = False
-        self.goal_image = np.zeros([self.env.camera_height, self.env.camera_width, 3])
-        if self.num_blocks >= 1:
-            tx1 = np.random.uniform(*range_x)
-            ty1 = np.random.uniform(*range_y)
-            tz1 = 0.9
-            self.env.sim.data.qpos[12:15] = [tx1, ty1, tz1]
-            x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
-            self.env.sim.data.qpos[15:19] = [w, x, y, z]
-        if self.num_blocks >= 2:
-            tx2 = np.random.uniform(*range_x)
-            ty2 = np.random.uniform(*range_y)
-            tz2 = 0.9
-            self.env.sim.data.qpos[19:22] = [tx2, ty2, tz2]
-            x, y, z, w = euler2quat([0, 0, np.random.uniform(2 * np.pi)])
-            self.env.sim.data.qpos[22:26] = [w, x, y, z]
-        if self.num_blocks >= 3:
-            tx3 = np.random.uniform(*range_x)
-            ty3 = np.random.uniform(*range_y)
-            tz3 = 0.9
-            self.env.sim.data.qpos[26:29] = [tx3, ty3, tz3]
-            x, y, z, w = euler2quat([0, 0, np.random.uniform(2 * np.pi)])
-            self.env.sim.data.qpos[29:33] = [w, x, y, z]
+        assert self.num_select <= self.num_total_blocks
+        self.selected = np.random.choice(range(self.num_total_blocks), \
+                            self.num_select, replace=False)
+
+        if self.task==1:
+            self.goal_image = np.zeros([self.env.camera_height, self.env.camera_width, 3])
+
+        for obj_idx in range(self.num_total_blocks):
+            if obj_idx in self.selected:
+                tx = np.random.uniform(*range_x)
+                ty = np.random.uniform(*range_y)
+                tz = 0.9
+                self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [tx, ty, tz]
+                x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
+                self.env.sim.data.qpos[7*obj_idx + 15: 7*obj_idx + 19] = [w, x, y, z]
+            else:
+                self.env.sim.data.qpos[7 * obj_idx + 12: 7 * obj_idx + 15] = [0, 0, 0]
         self.env.sim.forward()
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
         if self.env.data_format=='NCHW':
@@ -93,10 +83,10 @@ class targetpush_env(object):
             return [im_state, self.goal_image]
 
     def step(self, action, grasp=1.0):
-        self.pre_gripper_pos = deepcopy(self.env.sim.data.mocap_pos[0])
-        self.pre_pos1 = deepcopy(self.env.sim.data.get_body_xpos('object_1')[:2])
-        self.pre_pos2 = deepcopy(self.env.sim.data.get_body_xpos('object_2')[:2])
-        self.pre_pos3 = deepcopy(self.env.sim.data.get_body_xpos('object_3')[:2])
+        pre_poses = []
+        for obj_idx in range(self.selected):
+            pre_pos = deepcopy(self.env.sim.data.get_body_xpos('object_%d'%obj_idx)[:2])
+            pre_poses.append(pre_pos)
 
         px, py, theta_idx = action
         if theta_idx >= self.num_bins:
@@ -105,7 +95,16 @@ class targetpush_env(object):
         theta = theta_idx * (2*np.pi / self.num_bins)
         im_state, collision = self.push_from_pixel(px, py, theta)
 
-        reward, success = self.get_reward()
+        poses = []
+        for obj_idx in range(self.selected):
+            pos = deepcopy(self.env.sim.data.get_body_xpos('object_%d'%obj_idx)[:2])
+            poses.append(pre_pos)
+
+        info = {'collision': collision, 'success': success}
+        info['pre_poses'] = pre_poses
+        info['poses'] = poses
+
+        reward, success = self.get_reward(info)
         if collision:
             reward = -0.1
 
@@ -118,14 +117,6 @@ class targetpush_env(object):
             reward = -1.
             done = True
 
-        info = {'collision': collision, 'success': success}
-        pre_poses = np.array([self.pre_pos1, self.pre_pos2, self.pre_pos3])[:self.num_blocks]
-        pos1 = deepcopy(self.env.sim.data.get_body_xpos('object_1')[:2])
-        pos2 = deepcopy(self.env.sim.data.get_body_xpos('object_2')[:2])
-        pos3 = deepcopy(self.env.sim.data.get_body_xpos('object_3')[:2])
-        poses = np.array([pos1, pos2, pos3])[:self.num_blocks]
-        info['pre_pose'] = pre_poses
-        info['pose'] = poses
 
         if self.task == 0:
             return [im_state], reward, done, info
@@ -143,12 +134,12 @@ class targetpush_env(object):
         return x, y
 
     def check_blocks_in_range(self):
-        pos1 = self.env.sim.data.get_body_xpos('object_1')[:2]
-        pos2 = self.env.sim.data.get_body_xpos('object_2')[:2]
-        pos3 = self.env.sim.data.get_body_xpos('object_3')[:2]
-        poses = [pos1, pos2, pos3]
-        x_max, y_max = np.concatenate(poses[:self.num_blocks]).reshape(-1, 2).max(0)
-        x_min, y_min = np.concatenate(poses[:self.num_blocks]).reshape(-1, 2).min(0)
+        poses = []
+        for obj_idx in self.selected:
+            pos = self.env.sim.data.get_body_xpos('object_%d'%obj_idx)[:2]
+            poses.append(pos)
+        x_max, y_max = np.concatenate(poses).reshape(-1, 2).max(0)
+        x_min, y_min = np.concatenate(poses).reshape(-1, 2).min(0)
         if x_max > self.block_range_x[1] or x_min < self.block_range_x[0]:
             return False
         if y_max > self.block_range_y[1] or y_min < self.block_range_y[0]:
