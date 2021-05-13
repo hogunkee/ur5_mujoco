@@ -203,8 +203,20 @@ class UR5Env():
 
 
 if __name__=='__main__':
-    env = UR5Env()
+    env = UR5Env(xml_ver=2)
     env.move_to_pos()
+
+    # place objects #
+    x = np.linspace(-0.3, 0.3, 5)
+    y = np.linspace(0.4, -0.2, 5)
+    xx, yy = np.meshgrid(x, y, sparse=False)
+    xx = xx.reshape(-1)
+    yy = yy.reshape(-1)
+
+    for obj_idx in range(16):
+        env.sim.data.qpos[7 * obj_idx + 12: 7 * obj_idx + 15] = [xx[obj_idx], yy[obj_idx], 0.9]
+        print(obj_idx, xx[obj_idx], yy[obj_idx])
+    env.sim.forward()
 
     grasp = 0.0
     for i in range(100):
@@ -215,7 +227,7 @@ if __name__=='__main__':
             env.move_pos_diff([0.0, 0.0, 0.0], grasp=grasp)
             continue
 
-        dist = 0.03
+        dist = 0.05
         if x=='w':
             frame = env.move_pos_diff([0.0, 0.0, dist], grasp=grasp)
         elif x=='s':
@@ -229,6 +241,6 @@ if __name__=='__main__':
         elif x=='2':
             frame = env.move_pos_diff([0.0, -dist, 0.0], grasp=grasp)
 
-        print(frame.shape)
-        plt.imshow(frame)
-        plt.show()
+        # print(frame.shape)
+        # plt.imshow(frame)
+        # plt.show()

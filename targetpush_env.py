@@ -1,5 +1,6 @@
 from ur5_env import *
 from reward_functions import *
+import imageio
 import cv2
 from transform_utils import euler2quat
 
@@ -7,11 +8,11 @@ class targetpush_env(object):
     def __init__(self, ur5_env, num_blocks=1, mov_dist=0.05, max_steps=50, task=0):
         self.env = ur5_env 
         self.num_blocks = num_blocks
-        self.num_total_blocks = 9
+        self.num_total_blocks = 16
         self.num_bins = 8
 
-        self.task = task # 0: Reach / 1: Push
-        self.num_select = 5
+        self.task = task    # 0: Touch / 1: Push
+        self.num_select = 4
         self.mov_dist = mov_dist
         self.block_range_x = [-0.25, 0.25]
         self.block_range_y = [-0.15, 0.35]
@@ -55,25 +56,39 @@ class targetpush_env(object):
                             self.num_select, replace=False)
 
         if self.task==1:
-            self.goal_image = np.zeros([self.env.camera_height, self.env.camera_width, 3])
+            self.target_obj = np.random.choice(self.selected, 1)
+            self.goal_image = imageio.imread('target_images/object_%d.png'%self.target_obj)
+
+        x = np.linspace(range_x[0]+0.05, range_x[1]-0.05, 7)
+        y = np.linspace(range_y[1]-0.05, range_y[0]+0.05, 7)
+        xx, yy = np.meshgrid(x, y, sparse=True)
 
         check_feasible = False
         while not check_feasible:
+            px = np.random.choice(range(7), self.num_select, False)
+            py = np.random.choice(range(7), self.num_select, False)
             try:
+                i = 0
                 for obj_idx in range(self.num_total_blocks):
                     if obj_idx in self.selected:
-                        tx = np.random.uniform(*range_x)
-                        ty = np.random.uniform(*range_y)
+                        tx = xx[0][px[i]]
+                        ty = yy[py[i]][0]
+                        while self.task==1 and np.linalg.norm([tx, ty]) < 0.10:
+                            tx = np.random.uniform(*range_x)
+                            ty = np.random.uniform(*range_y)
+                        i += 1
                         tz = 0.9
                         self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [tx, ty, tz]
                         x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
                         self.env.sim.data.qpos[7*obj_idx + 15: 7*obj_idx + 19] = [w, x, y, z]
                     else:
-                        self.env.sim.data.qpos[7 * obj_idx + 12: 7 * obj_idx + 15] = [0, 0, 0]
-                self.env.sim.forward()
+                        self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [0, 0, 0]
+                self.env.sim.step()
+                check_feasible = self.check_blocks_in_range()
             except:
                 continue
-            check_feasible = self.check_blocks_in_range()
+
+
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
         if self.task==1 and self.env.data_format=='NCHW':
             self.goal_image = np.transpose(self.goal_image, [2, 0, 1])
@@ -88,7 +103,7 @@ class targetpush_env(object):
         else:
             return [im_state, self.goal_image]
 
-    def step(self, action, grasp=1.0):
+    def step(self, action):
         pre_poses = []
         for obj_idx in self.selected:
             pre_pos = deepcopy(self.env.sim.data.get_body_xpos('object_%d'%obj_idx)[:2])
@@ -104,12 +119,12 @@ class targetpush_env(object):
         poses = []
         for obj_idx in self.selected:
             pos = deepcopy(self.env.sim.data.get_body_xpos('object_%d'%obj_idx)[:2])
-            poses.append(pre_pos)
+            poses.append(pos)
 
         info = {}
         info['collision'] = collision
-        info['pre_poses'] = pre_poses
-        info['poses'] = poses
+        info['pre_poses'] = np.array(pre_poses)
+        info['poses'] = np.array(poses)
 
         reward, success = self.get_reward(info)
         info['success'] = success
@@ -164,7 +179,7 @@ class targetpush_env(object):
         self.env.move_to_pos([pos_before[0], pos_before[1], self.z_collision_check], grasp=1.0)
         force = self.env.sim.data.sensordata
         if np.abs(force[2]) > 1.0 or np.abs(force[5]) > 1.0:
-            print("Collision!")
+            # print("Collision!")
             self.env.move_to_pos([pos_before[0], pos_before[1], self.z_prepush], grasp=1.0)
             im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
             return im_state, True
