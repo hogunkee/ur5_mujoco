@@ -12,16 +12,18 @@ def reward_touch(self, info):
     return reward, done
 
 def reward_targetpush(self, info):
-    target_idx = info['obj_indices'].index(info['target_obj_idx'])
-    pre_poses = np.array(info['pre_poses'])
+    target_idx = list(info['obj_indices']).index(info['target_obj_idx'])
     poses = np.array(info['poses'])
-    check_near = np.linalg.norm(pre_poses - poses, axis=1) < 0.05
+    check_near = np.linalg.norm(poses, axis=1) < 0.05
     if check_near.any():
         done = True
         if check_near[target_idx]:
             reward = 1.0
         else:
             reward = 0.0
+    else:
+        reward = -self.time_penalty
+        done = False
     return reward, done
 
 def reward_reach(self):

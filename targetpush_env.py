@@ -5,9 +5,8 @@ import cv2
 from transform_utils import euler2quat
 
 class targetpush_env(object):
-    def __init__(self, ur5_env, num_blocks=1, mov_dist=0.05, max_steps=50, task=0):
-        self.env = ur5_env 
-        self.num_blocks = num_blocks
+    def __init__(self, ur5_env, mov_dist=0.10, max_steps=50, task=0):
+        self.env = ur5_env
         self.num_total_blocks = 16
         self.num_bins = 8
 
@@ -57,16 +56,16 @@ class targetpush_env(object):
 
         if self.task==1:
             self.target_obj = np.random.choice(self.selected)
-            self.goal_image = imageio.imread('target_images/object_%d.png'%self.target_obj)
+            self.goal_image = imageio.imread(os.path.join(file_path, '../ur5_mujoco', 'target_images/object_%d.png'%self.target_obj))
 
-        x = np.linspace(range_x[0]+0.05, range_x[1]-0.05, 7)
-        y = np.linspace(range_y[1]-0.05, range_y[0]+0.05, 7)
+        x = np.linspace(range_x[0]+0.05, range_x[1]-0.05, 11)
+        y = np.linspace(range_y[1]-0.05, range_y[0]+0.05, 11)
         xx, yy = np.meshgrid(x, y, sparse=True)
 
         check_feasible = False
         while not check_feasible:
-            px = np.random.choice(range(7), self.num_select, False)
-            py = np.random.choice(range(7), self.num_select, False)
+            px = np.random.choice(range(11), self.num_select, False)
+            py = np.random.choice(range(11), self.num_select, False)
             try:
                 i = 0
                 for obj_idx in range(self.num_total_blocks):
@@ -80,7 +79,7 @@ class targetpush_env(object):
                         tz = 0.9
                         self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [tx, ty, tz]
                         x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
-                        elf.env.sim.data.qpos[7*obj_idx + 15: 7*obj_idx + 19] = [w, x, y, z]
+                        self.env.sim.data.qpos[7*obj_idx + 15: 7*obj_idx + 19] = [w, x, y, z]
                     else:
                         self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [0, 0, 0]
                 self.env.sim.step()
@@ -123,10 +122,11 @@ class targetpush_env(object):
 
         info = {}
         info['obj_indices'] = self.selected
-        info['target_obj_idx'] = self.target_obj
         info['collision'] = collision
         info['pre_poses'] = np.array(pre_poses)
         info['poses'] = np.array(poses)
+        if self.task==1:
+            info['target_obj_idx'] = self.target_obj
 
         reward, success = self.get_reward(info)
         info['success'] = success
@@ -232,17 +232,22 @@ class targetpush_env(object):
 
 if __name__=='__main__':
     visualize = True
-    xml_ver = 1
+    task = 1
+    xml_ver = task + 1
     env = UR5Env(render=True, camera_height=64, camera_width=64, control_freq=5, data_format='NHWC', xml_ver=xml_ver)
-    env = targetpush_env(env, num_blocks=2, mov_dist=0.05, max_steps=100, task=1)
+    env = targetpush_env(env, mov_dist=0.10, max_steps=100, task=task)
 
     states = env.reset()
     if visualize:
         fig = plt.figure()
-        ax = fig.add_subplot(111)
-        s = deepcopy(states[0])
-        s[states[1].max(2)!=0] = 0
-        im = ax.imshow(s + states[1])
+        if task == 1:
+            ax = fig.add_subplot(121)
+            ax.imshow(states[0])
+            ax2 = fig.add_subplot(122)
+            ax2.imshow(states[1])
+        else:
+            ax = fig.add_subplot(111)
+            ax.imshow(states[0])
         plt.show(block=False)
         fig.canvas.draw()
         fig.canvas.draw()
@@ -262,9 +267,9 @@ if __name__=='__main__':
         print('{} steps. action: {}'.format(env.step_count, action))
         states, reward, done, info = env.step(action)
         if visualize:
-            s = deepcopy(states[0])
-            s[states[1].max(2)!=0] = 0
-            im = ax.imshow(s + states[1])
+            ax.imshow(states[0])
+            if task==1:
+                ax2.imshow(states[1])
             fig.canvas.draw()
 
         print('Reward: {}. Done: {}'.format(reward, done))
@@ -272,7 +277,7 @@ if __name__=='__main__':
             print('Done. New episode starts.')
             states = env.reset()
             if visualize:
-                s = deepcopy(states[0])
-                s[states[1].max(2)!=0] = 0
-                im = ax.imshow(s + states[1])
+                ax.imshow(states[0])
+                if task==1:
+                    ax2.imshow(states[1])
                 fig.canvas.draw()
