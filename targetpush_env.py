@@ -57,17 +57,23 @@ class targetpush_env(object):
         if self.task==1:
             self.goal_image = np.zeros([self.env.camera_height, self.env.camera_width, 3])
 
-        for obj_idx in range(self.num_total_blocks):
-            if obj_idx in self.selected:
-                tx = np.random.uniform(*range_x)
-                ty = np.random.uniform(*range_y)
-                tz = 0.9
-                self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [tx, ty, tz]
-                x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
-                self.env.sim.data.qpos[7*obj_idx + 15: 7*obj_idx + 19] = [w, x, y, z]
-            else:
-                self.env.sim.data.qpos[7 * obj_idx + 12: 7 * obj_idx + 15] = [0, 0, 0]
-        self.env.sim.forward()
+        check_feasible = False
+        while not check_feasible:
+            try:
+                for obj_idx in range(self.num_total_blocks):
+                    if obj_idx in self.selected:
+                        tx = np.random.uniform(*range_x)
+                        ty = np.random.uniform(*range_y)
+                        tz = 0.9
+                        self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [tx, ty, tz]
+                        x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
+                        self.env.sim.data.qpos[7*obj_idx + 15: 7*obj_idx + 19] = [w, x, y, z]
+                    else:
+                        self.env.sim.data.qpos[7 * obj_idx + 12: 7 * obj_idx + 15] = [0, 0, 0]
+                self.env.sim.forward()
+            except:
+                continue
+            check_feasible = self.check_blocks_in_range()
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
         if self.task==1 and self.env.data_format=='NCHW':
             self.goal_image = np.transpose(self.goal_image, [2, 0, 1])
