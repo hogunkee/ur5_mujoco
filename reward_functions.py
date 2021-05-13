@@ -1,8 +1,8 @@
 import numpy as np
 
 def reward_touch(self, info):
-    pre_poses = info['pre_poses']
-    poses = info['poses']
+    pre_poses = np.array(info['pre_poses'])
+    poses = np.array(info['poses'])
     if np.linalg.norm(pre_poses - poses) > 1e-3:
         reward = 1.0
         done = False

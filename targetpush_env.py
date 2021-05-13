@@ -69,7 +69,7 @@ class targetpush_env(object):
                 self.env.sim.data.qpos[7 * obj_idx + 12: 7 * obj_idx + 15] = [0, 0, 0]
         self.env.sim.forward()
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
-        if self.task==0 and self.env.data_format=='NCHW':
+        if self.task==1 and self.env.data_format=='NCHW':
             self.goal_image = np.transpose(self.goal_image, [2, 0, 1])
         self.step_count = 0
 
@@ -84,7 +84,7 @@ class targetpush_env(object):
 
     def step(self, action, grasp=1.0):
         pre_poses = []
-        for obj_idx in range(self.selected):
+        for obj_idx in self.selected:
             pre_pos = deepcopy(self.env.sim.data.get_body_xpos('object_%d'%obj_idx)[:2])
             pre_poses.append(pre_pos)
 
@@ -96,15 +96,17 @@ class targetpush_env(object):
         im_state, collision = self.push_from_pixel(px, py, theta)
 
         poses = []
-        for obj_idx in range(self.selected):
+        for obj_idx in self.selected:
             pos = deepcopy(self.env.sim.data.get_body_xpos('object_%d'%obj_idx)[:2])
             poses.append(pre_pos)
 
-        info = {'collision': collision, 'success': success}
+        info = {}
+        info['collision'] = collision
         info['pre_poses'] = pre_poses
         info['poses'] = poses
 
         reward, success = self.get_reward(info)
+        info['success'] = success
         if collision:
             reward = -0.1
 
