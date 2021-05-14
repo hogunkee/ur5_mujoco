@@ -32,8 +32,7 @@ class targetpush_env(object):
         # cam_mat = self.env.sim.data.get_camera_xmat("rlview")
         # cam_pos = self.env.sim.data.get_camera_xpos("rlview")
 
-        self.object_images = []
-        self.load_object_images()
+        self.object_images = self.load_object_images()
 
         self.colors = np.array([ 
             [0.6784, 1.0, 0.1843], 
@@ -44,9 +43,11 @@ class targetpush_env(object):
         self.init_env()
 
     def load_object_images(self):
+        obj_ims = []
         for obj in range(self.num_total_blocks):
             obj_im = imageio.imread(os.path.join(file_path, '../ur5_mujoco', 'target_images/object_%d.png'%obj))
-        self.object_images.append(obj_im)
+            obj_ims.append(obj_im)
+        return obj_ims
 
     def get_reward(self, info):
         if self.task == 0:
