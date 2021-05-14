@@ -137,7 +137,7 @@ class pushpixel_env(object):
         if self.step_count==self.max_steps:
             done = True
         if not self.check_blocks_in_range():
-            print("blocks not in feasible area.")
+            #print("blocks not in feasible area.")
             reward = -1.
             done = True
 
