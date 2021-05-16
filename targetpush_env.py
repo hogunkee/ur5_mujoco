@@ -1,3 +1,5 @@
+import numpy as np
+
 from ur5_env import *
 from reward_functions import *
 import imageio
@@ -55,16 +57,23 @@ class targetpush_env(object):
         elif self.task == 1:
             return reward_targetpush(self, info)
 
-    def init_env(self):
+    def init_env(self, target=-1):
         self.env._init_robot()
         range_x = self.block_range_x
         range_y = self.block_range_y
         assert self.num_select <= self.num_total_blocks
-        self.selected = np.random.choice(range(self.num_total_blocks), \
-                            self.num_select, replace=False)
 
         if self.task==1:
-            self.target_obj = np.random.choice(self.selected)
+            if target==-1:
+                self.selected = np.random.choice(range(self.num_total_blocks), \
+                                                 self.num_select, replace=False)
+                self.target_obj = np.random.choice(self.selected)
+            else:
+                self.target_obj = target
+                self.selected = np.random.choice(range(self.num_total_blocks), \
+                                                 self.num_select-1, replace=False)
+                self.selected = np.concatenate([[self.target_obj], self.selected])
+
             self.goal_image = self.object_images[self.target_obj]
 
         x = np.linspace(range_x[0]+0.05, range_x[1]-0.05, 11)
@@ -104,8 +113,8 @@ class targetpush_env(object):
 
         return im_state
 
-    def reset(self):
-        im_state = self.init_env()
+    def reset(self, target=-1):
+        im_state = self.init_env(target)
         if self.task==0:
             return [im_state]
         else:
@@ -137,13 +146,12 @@ class targetpush_env(object):
         if self.task==1:
             info['target_obj'] = self.target_obj
 
-        reward, success = self.get_reward(info)
-        info['success'] = success
+        reward, done = self.get_reward(info)
+        # info['success'] = success
         if collision:
             reward = -0.1
 
         self.step_count += 1
-        done = success
         if self.step_count==self.max_steps:
             done = True
         if not self.check_blocks_in_range():

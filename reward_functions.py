@@ -15,15 +15,17 @@ def reward_targetpush(self, info):
     target_idx = list(info['obj_indices']).index(info['target_obj'])
     poses = np.array(info['poses'])
     check_near = np.linalg.norm(poses, axis=1) < 0.05
+    info['success'] = False
     if check_near.any():
         done = True
         reached_idx = list(check_near).index(True)
         if reached_idx==target_idx:
             reward = 1.0
+            info['success'] = True
         else:
             reward = 0.0
         reached_obj = info['obj_indices'][reached_idx]
-        info['reached_obj'] = reached_obj 
+        info['reached_obj'] = reached_obj
     else:
         reward = -self.time_penalty
         done = False
