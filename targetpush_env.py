@@ -7,13 +7,14 @@ import cv2
 from transform_utils import euler2quat
 
 class targetpush_env(object):
-    def __init__(self, ur5_env, mov_dist=0.10, max_steps=50, task=0):
+    def __init__(self, ur5_env, num_use=16, num_select=4, mov_dist=0.10, max_steps=50, task=0):
         self.env = ur5_env
         self.num_total_blocks = 16
-        self.num_bins = 8
+        self.num_use = num_use
+        self.num_select = num_select
 
-        self.task = task    # 0: Touch / 1: Push
-        self.num_select = 4
+        self.task = task  # 0: Touch / 1: Push
+        self.num_bins = 8
         self.mov_dist = mov_dist
         self.block_range_x = [-0.25, 0.25]
         self.block_range_y = [-0.15, 0.35]
@@ -61,16 +62,16 @@ class targetpush_env(object):
         self.env._init_robot()
         range_x = self.block_range_x
         range_y = self.block_range_y
-        assert self.num_select <= self.num_total_blocks
+        assert self.num_select <= self.num_use <= self.num_total_blocks
 
         if self.task==1:
             if target==-1:
-                self.selected = np.random.choice(range(self.num_total_blocks), \
+                self.selected = np.random.choice(range(self.num_use), \
                                                  self.num_select, replace=False)
                 self.target_obj = np.random.choice(self.selected)
             else:
                 self.target_obj = target
-                self.selected = np.random.choice(range(self.num_total_blocks), \
+                self.selected = np.random.choice(range(self.num_use), \
                                                  self.num_select-1, replace=False)
                 self.selected = np.concatenate([[self.target_obj], self.selected])
 
