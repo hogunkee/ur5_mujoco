@@ -116,8 +116,6 @@ class pushpixel_env(object):
             return [im_state, self.goal_image]
 
     def step(self, action, grasp=1.0):
-        self.pre_gripper_pos = deepcopy(self.env.sim.data.mocap_pos[0])
-        self.pre_target_pos = deepcopy(self.env.sim.data.get_body_xpos('target_body_1'))
         self.pre_pos1 = deepcopy(self.env.sim.data.get_body_xpos('target_body_1')[:2])
         self.pre_pos2 = deepcopy(self.env.sim.data.get_body_xpos('target_body_2')[:2])
         self.pre_pos3 = deepcopy(self.env.sim.data.get_body_xpos('target_body_3')[:2])
@@ -167,12 +165,12 @@ class pushpixel_env(object):
         return x, y
 
     def check_blocks_in_range(self):
-        pos1 = self.env.sim.data.get_body_xpos('target_body_1')[:2]
-        pos2 = self.env.sim.data.get_body_xpos('target_body_2')[:2]
-        pos3 = self.env.sim.data.get_body_xpos('target_body_3')[:2]
-        poses = [pos1, pos2, pos3]
-        x_max, y_max = np.concatenate(poses[:self.num_blocks]).reshape(-1, 2).max(0)
-        x_min, y_min = np.concatenate(poses[:self.num_blocks]).reshape(-1, 2).min(0)
+        poses = []
+        for obj_idx in self.selected:
+            pos = self.env.sim.data.get_body_xpos('target_body_%d'%(obj_idx+1))[:2]
+            poses.append(pos)
+        x_max, y_max = np.concatenate(poses).reshape(-1, 2).max(0)
+        x_min, y_min = np.concatenate(poses).reshape(-1, 2).min(0)
         if x_max > self.block_range_x[1] or x_min < self.block_range_x[0]:
             return False
         if y_max > self.block_range_y[1] or y_min < self.block_range_y[0]:
@@ -189,7 +187,7 @@ class pushpixel_env(object):
         self.env.move_to_pos([pos_before[0], pos_before[1], self.z_collision_check], grasp=1.0)
         force = self.env.sim.data.sensordata
         if np.abs(force[2]) > 1.0 or np.abs(force[5]) > 1.0:
-            print("Collision!")
+            #print("Collision!")
             self.env.move_to_pos([pos_before[0], pos_before[1], self.z_prepush], grasp=1.0)
             im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
             return im_state, True
