@@ -1,6 +1,7 @@
 from ur5_env import *
 from reward_functions import *
 import cv2
+import imageio
 from transform_utils import euler2quat
 
 class pushpixel_env(object):
@@ -24,16 +25,16 @@ class pushpixel_env(object):
         self.threshold = 0.05
 
         self.init_pos = [0.0, -0.23, 1.4]
+        self.background_img = imageio.imread(os.path.join(file_path, 'background.png')) / 255.
 
         self.cam_id = 1
         self.cam_theta = 30 * np.pi / 180
         # cam_mat = self.env.sim.data.get_camera_xmat("rlview")
         # cam_pos = self.env.sim.data.get_camera_xpos("rlview")
 
-        self.colors = np.array([ 
-            [0.6784, 1.0, 0.1843], 
-            [0.93, 0.545, 0.93], 
-            [0.9686, 0.902, 0] 
+        self.colors = np.array([
+            [0.9, 0.0, 0.0], [0.0, 0.9, 0.0], [0.0, 0.0, 0.9]
+            # [0.6784, 1.0, 0.1843], [0.93, 0.545, 0.93], [0.9686, 0.902, 0]
             ])
 
         self.init_env()
@@ -59,7 +60,7 @@ class pushpixel_env(object):
         self.success1 = False
         self.success2 = False
         self.success3 = False
-        self.goal_image = np.zeros([self.env.camera_height, self.env.camera_width, 3]) #self.num_blocks])
+        self.goal_image = deepcopy(self.background_img)
         if self.num_blocks >= 1:
             tx1 = np.random.uniform(*range_x)
             ty1 = np.random.uniform(*range_y)
