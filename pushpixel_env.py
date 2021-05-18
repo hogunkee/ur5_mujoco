@@ -166,7 +166,7 @@ class pushpixel_env(object):
 
     def check_blocks_in_range(self):
         poses = []
-        for obj_idx in self.selected:
+        for obj_idx in range(self.num_blocks):
             pos = self.env.sim.data.get_body_xpos('target_body_%d'%(obj_idx+1))[:2]
             poses.append(pos)
         x_max, y_max = np.concatenate(poses).reshape(-1, 2).max(0)
