@@ -11,10 +11,10 @@ class pushpixel_env(object):
 
         self.task = task # 0: Reach / 1: Push
         self.mov_dist = mov_dist
-        self.block_range_x = [-0.25, 0.25]
-        self.block_range_y = [-0.15, 0.35]
-        self.eef_range_x = [-0.3, 0.3]
-        self.eef_range_y = [-0.2, 0.4]
+        self.block_range_x = [-0.20, 0.20] #[-0.25, 0.25]
+        self.block_range_y = [-0.10, 0.30] #[-0.15, 0.35]
+        self.eef_range_x = [-0.35, 0.35]
+        self.eef_range_y = [-0.22, 0.40]
         self.z_push = 1.05
         self.z_prepush = self.z_push + self.mov_dist
         self.z_collision_check = self.z_push + 0.025
@@ -59,7 +59,7 @@ class pushpixel_env(object):
         self.success1 = False
         self.success2 = False
         self.success3 = False
-        self.goal_image = np.zeros([self.env.camera_height, self.env.camera_width, 3])
+        self.goal_image = np.zeros([self.env.camera_height, self.env.camera_width, 3]) #self.num_blocks])
         if self.num_blocks >= 1:
             tx1 = np.random.uniform(*range_x)
             ty1 = np.random.uniform(*range_y)
@@ -240,8 +240,15 @@ class pushpixel_env(object):
 
 if __name__=='__main__':
     visualize = True
-    env = UR5Env(render=True, camera_height=64, camera_width=64, control_freq=5, data_format='NHWC')
+    env = UR5Env(render=True, camera_height=96, camera_width=96, control_freq=5, data_format='NHWC')
     env = pushpixel_env(env, num_blocks=2, mov_dist=0.05, max_steps=100, task=1)
+
+    # eef_range_x = [-0.3, 0.3]
+    # eef_range_y = [-0.2, 0.4]
+    print(env.pos2pixel(env.eef_range_x[0], env.eef_range_y[0]))
+    print(env.pos2pixel(env.eef_range_x[0], env.eef_range_y[1]))
+    print(env.pos2pixel(env.eef_range_x[1], env.eef_range_y[1]))
+    print(env.pos2pixel(env.eef_range_x[1], env.eef_range_y[0]))
 
     states = env.reset()
     if visualize:
