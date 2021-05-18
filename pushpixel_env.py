@@ -147,8 +147,8 @@ class pushpixel_env(object):
         pos2 = deepcopy(self.env.sim.data.get_body_xpos('target_body_2')[:2])
         pos3 = deepcopy(self.env.sim.data.get_body_xpos('target_body_3')[:2])
         poses = np.array([pos1, pos2, pos3])[:self.num_blocks]
-        info['pre_pose'] = pre_poses
-        info['pose'] = poses
+        info['pre_poses'] = pre_poses
+        info['poses'] = poses
 
         if self.task == 0:
             return [im_state], reward, done, info
