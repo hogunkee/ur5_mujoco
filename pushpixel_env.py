@@ -59,7 +59,7 @@ class pushpixel_env(object):
             self.goal_image = deepcopy(self.background_img)
             self.goals = []
             for obj_idx in range(3):
-                if obj_idx < self.num_blocks-1:
+                if obj_idx < self.num_blocks:
                     tx = np.random.uniform(*range_x)
                     ty = np.random.uniform(*range_y)
                     tz = 0.9
@@ -113,7 +113,7 @@ class pushpixel_env(object):
         info = {}
         info['goals'] = np.array(self.goals)
         info['collision'] = collision
-        info['pre_poses'] = np.arry(pre_poses)
+        info['pre_poses'] = np.array(pre_poses)
         info['poses'] = np.array(poses)
 
         reward, success = self.get_reward(info)

@@ -134,7 +134,7 @@ def reward_push_binary(self, info):
     reward = 0.0
     success = []
     for obj_idx in range(self.num_blocks):
-        dist = np.linalg.norm(poses[obj_idx] - self.goals[obj_idx])
+        dist = np.linalg.norm(poses[obj_idx] - goals[obj_idx])
         pre_dist = np.linalg.norm(pre_poses[obj_idx] - goals[obj_idx])
         if dist < pre_dist - 0.001:
             reward += 1
