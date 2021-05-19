@@ -105,6 +105,7 @@ def reward_push_dense(self):
     reward = max(reward, min_reward)
     return reward, done
 
+
 def reward_push_reverse(self, info):
     reward_scale = 0.5
     min_reward = -2
