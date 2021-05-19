@@ -118,7 +118,7 @@ def reward_push_reverse(self, info):
     for obj_idx in range(self.num_blocks):
         dist = np.linalg.norm(poses[obj_idx] - self.goals[obj_idx])
         pre_dist = np.linalg.norm(pre_poses[obj_idx] - goals[obj_idx])
-        reward += reward_scale * min(10, (1/dist1 - 1/pre_dist1))
+        reward += reward_scale * min(10, (1/dist - 1/pre_dist))
         success.append(int(dist<self.threshold))
 
     reward -= self.time_penalty

@@ -5,7 +5,7 @@ import imageio
 from transform_utils import euler2quat
 
 class pushpixel_env(object):
-    def __init__(self, ur5_env, num_blocks=1, mov_dist=0.05, max_steps=50, task=0):
+    def __init__(self, ur5_env, num_blocks=1, mov_dist=0.05, max_steps=50, task=0, reward_type='binary'):
         self.env = ur5_env 
         self.num_blocks = num_blocks
         self.num_bins = 8
@@ -23,6 +23,7 @@ class pushpixel_env(object):
         self.max_steps = max_steps
         self.step_count = 0
         self.threshold = 0.05
+        self.reward_type = reward_type
 
         self.init_pos = [0.0, -0.23, 1.4]
         self.background_img = imageio.imread(os.path.join(file_path, 'background.png')) / 255.
@@ -45,9 +46,12 @@ class pushpixel_env(object):
         if self.task == 0:
             return reward_reach(self)
         elif self.task == 1:
-            return reward_push_binary(self, info)
-            #return reward_push_reverse(self)
-            #return reward_push_dense(self)
+            if self.reward_type=="binary":
+                return reward_push_binary(self, info)
+            elif self.reward_type=="reverse":
+                return reward_push_reverse(self, info)
+            elif self.reward_type=="dense":
+                return reward_push_dense(self)
 
     def init_env(self):
         self.env._init_robot()
