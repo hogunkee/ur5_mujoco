@@ -26,6 +26,7 @@ class pushpixel_env(object):
 
         self.init_pos = [0.0, -0.23, 1.4]
         self.background_img = imageio.imread(os.path.join(file_path, 'background.png')) / 255.
+        self.goals = []
 
         self.cam_id = 1
         self.cam_theta = 30 * np.pi / 180
@@ -40,64 +41,40 @@ class pushpixel_env(object):
         self.init_env()
         # self.env.sim.forward()
 
-    def get_reward(self):
+    def get_reward(self, info):
         if self.task == 0:
             return reward_reach(self)
         elif self.task == 1:
-            return reward_push_reverse(self)
+            return reward_push_binary(self, info)
+            #return reward_push_reverse(self)
             #return reward_push_dense(self)
 
     def init_env(self):
         self.env._init_robot()
         range_x = self.block_range_x
         range_y = self.block_range_y
-        self.env.sim.data.qpos[12:15] = [0, 0, 0]
-        self.env.sim.data.qpos[19:22] = [0, 0, 0]
-        self.env.sim.data.qpos[26:29] = [0, 0, 0]
-        self.goal1 = [0., 0.]
-        self.goal2 = [0., 0.]
-        self.goal3 = [0., 0.]
-        self.success1 = False
-        self.success2 = False
-        self.success3 = False
-        self.goal_image = deepcopy(self.background_img)
-        if self.num_blocks >= 1:
-            tx1 = np.random.uniform(*range_x)
-            ty1 = np.random.uniform(*range_y)
-            tz1 = 0.9
-            self.env.sim.data.qpos[12:15] = [tx1, ty1, tz1]
-            x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
-            self.env.sim.data.qpos[15:19] = [w, x, y, z]
-            gx1 = np.random.uniform(*range_x)
-            gy1 = np.random.uniform(*range_y)
-            self.goal1 = [gx1, gy1]
-            # self.goal_image[self.pos2pixel(*self.goal1)] = self.colors[0]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal1), 1, self.colors[0], -1)
-        if self.num_blocks >= 2:
-            tx2 = np.random.uniform(*range_x)
-            ty2 = np.random.uniform(*range_y)
-            tz2 = 0.9
-            self.env.sim.data.qpos[19:22] = [tx2, ty2, tz2]
-            x, y, z, w = euler2quat([0, 0, np.random.uniform(2 * np.pi)])
-            self.env.sim.data.qpos[22:26] = [w, x, y, z]
-            gx2 = np.random.uniform(*range_x)
-            gy2 = np.random.uniform(*range_y)
-            self.goal2 = [gx2, gy2]
-            # self.goal_image[self.pos2pixel(*self.goal2)] = self.colors[1]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal2), 1, self.colors[1], -1)
-        if self.num_blocks >= 3:
-            tx3 = np.random.uniform(*range_x)
-            ty3 = np.random.uniform(*range_y)
-            tz3 = 0.9
-            self.env.sim.data.qpos[26:29] = [tx3, ty3, tz3]
-            x, y, z, w = euler2quat([0, 0, np.random.uniform(2 * np.pi)])
-            self.env.sim.data.qpos[29:33] = [w, x, y, z]
-            gx3 = np.random.uniform(*range_x)
-            gy3 = np.random.uniform(*range_y)
-            self.goal3 = [gx3, gy3]
-            # self.goal_image[self.pos2pixel(*self.goal3)] = self.colors[2]
-            cv2.circle(self.goal_image, self.pos2pixel(*self.goal3), 1, self.colors[2], -1)
-        self.env.sim.forward()
+
+        check_feasible = False
+        while not check_feasible:
+            self.goal_image = deepcopy(self.background_img)
+            self.goals = []
+            for obj_idx in range(3):
+                if obj_idx < self.num_blocks-1:
+                    tx = np.random.uniform(*range_x)
+                    ty = np.random.uniform(*range_y)
+                    tz = 0.9
+                    self.env.sim.data.qpos[7*obj_idx+12: 7*obj_idx+15] = [tx, ty, tz]
+                    x, y, z, w = euler2quat([0, 0, np.random.uniform(2*np.pi)])
+                    self.env.sim.data.qpos[7*obj_idx+15: 7*obj_idx+19] = [w, x, y, z]
+                    gx = np.random.uniform(*range_x)
+                    gy = np.random.uniform(*range_y)
+                    self.goals.append([gx, gy])
+                    cv2.circle(self.goal_image, self.pos2pixel(gx, gy), 1, self.colors[obj_idx], -1)
+                    # self.goal_image[self.pos2pixel(*self.goal1)] = self.colors[0]
+                else:
+                    self.env.sim.data.qpos[7*obj_idx + 12: 7*obj_idx + 15] = [0, 0, 0]
+            self.env.sim.step()
+            check_feasible = self.check_blocks_in_range()
 
         im_state = self.env.move_to_pos(self.init_pos, grasp=1.0)
         if self.env.data_format=='NCHW':
@@ -116,9 +93,10 @@ class pushpixel_env(object):
             return [im_state, self.goal_image]
 
     def step(self, action, grasp=1.0):
-        self.pre_pos1 = deepcopy(self.env.sim.data.get_body_xpos('target_body_1')[:2])
-        self.pre_pos2 = deepcopy(self.env.sim.data.get_body_xpos('target_body_2')[:2])
-        self.pre_pos3 = deepcopy(self.env.sim.data.get_body_xpos('target_body_3')[:2])
+        pre_poses = []
+        for obj_idx in range(self.num_blocks):
+            pre_pos = deepcopy(self.env.sim.data.get_body_xpos('target_body_%d'%(obj_idx+1))[:2])
+            pre_poses.append(pre_pos)
 
         px, py, theta_idx = action
         if theta_idx >= self.num_bins:
@@ -127,7 +105,19 @@ class pushpixel_env(object):
         theta = theta_idx * (2*np.pi / self.num_bins)
         im_state, collision = self.push_from_pixel(px, py, theta)
 
-        reward, success = self.get_reward()
+        poses = []
+        for obj_idx in range(self.num_blocks):
+            pos = deepcopy(self.env.sim.data.get_body_xpos('target_body_%d'%(obj_idx+1))[:2])
+            poses.append(pos)
+
+        info = {}
+        info['goals'] = np.array(self.goals)
+        info['collision'] = collision
+        info['pre_poses'] = np.arry(pre_poses)
+        info['poses'] = np.array(poses)
+
+        reward, success = self.get_reward(info)
+        info['success'] = success
         if collision:
             reward = -0.1
 
@@ -139,15 +129,9 @@ class pushpixel_env(object):
             #print("blocks not in feasible area.")
             reward = -1.
             done = True
-
-        info = {'collision': collision, 'success': success}
-        pre_poses = np.array([self.pre_pos1, self.pre_pos2, self.pre_pos3])[:self.num_blocks]
-        pos1 = deepcopy(self.env.sim.data.get_body_xpos('target_body_1')[:2])
-        pos2 = deepcopy(self.env.sim.data.get_body_xpos('target_body_2')[:2])
-        pos3 = deepcopy(self.env.sim.data.get_body_xpos('target_body_3')[:2])
-        poses = np.array([pos1, pos2, pos3])[:self.num_blocks]
-        info['pre_poses'] = pre_poses
-        info['poses'] = poses
+            info['out_of_range'] = True
+        else:
+            info['out_of_range'] = False
 
         if self.task == 0:
             return [im_state], reward, done, info
